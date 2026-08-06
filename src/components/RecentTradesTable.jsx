@@ -29,10 +29,11 @@ export default function RecentTradesTable({ trades }) {
           <th>Symbol</th>
           <th>Signal</th>
           <th>Status</th>
-          <th>Entry</th>
-          <th>Exit</th>
+          <th>Entry price</th>
+          <th>Exit price</th>
+          <th>Entry time</th>
+          <th>Exit time</th>
           <th>P&amp;L</th>
-          <th>Closed</th>
         </tr>
       </thead>
       <tbody>
@@ -45,10 +46,11 @@ export default function RecentTradesTable({ trades }) {
             </td>
             <td>{round2(t.entry_price) ?? '—'}</td>
             <td>{round2(t.exit_price) ?? '—'}</td>
+            <td>{formatTime(t.created_at)}</td>
+            <td>{formatTime(t.closed_at)}</td>
             <td style={{ color: t.pnl > 0 ? '#0ca30c' : t.pnl < 0 ? '#e66767' : undefined }}>
               {t.pnl != null ? (t.pnl > 0 ? '+' : '') + round2(t.pnl) : '—'}
             </td>
-            <td>{formatTime(t.closed_at)}</td>
           </tr>
         ))}
       </tbody>

@@ -76,3 +76,11 @@ export function fetchTrades({ status, limit = 50, offset = 0 } = {}) {
 export function fetchPositions() {
   return request('/api/positions');
 }
+
+export function fetchWebhookLogs({ processed, limit = 50, offset = 0 } = {}) {
+  const params = new URLSearchParams();
+  if (processed !== undefined) params.set('processed', processed);
+  params.set('limit', limit);
+  params.set('offset', offset);
+  return request(`/api/webhook-logs?${params.toString()}`);
+}
