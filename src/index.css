@@ -233,17 +233,37 @@ button {
   font-size: 13px;
 }
 
+/* Narrow screens collapse the sidebar to an icon rail. The nav LABEL must be
+   hidden along with the brand text — leaving it visible in a 64px column wraps
+   every item onto two lines and spills over the content area. */
 @media (max-width: 720px) {
   .sidebar {
-    width: 64px;
-    padding: 18px 8px;
+    width: 56px;
+    padding: 18px 6px;
   }
-  .sidebar-brand-text {
+  .sidebar-brand {
+    justify-content: center;
+    padding: 6px 0 20px;
+  }
+  .sidebar-brand-text,
+  .sidebar-nav-label {
     display: none;
   }
   .sidebar-nav-item {
     justify-content: center;
-    padding: 10px;
+    padding: 11px 0;
+  }
+  .sidebar-nav-icon {
+    font-size: 15px;
+  }
+  .content {
+    padding: 16px 12px;
+  }
+  .panel {
+    padding: 16px 12px;
+  }
+  .stat-tile.hero .stat-value {
+    font-size: 28px;
   }
 }
 
@@ -283,11 +303,46 @@ button {
   margin: 0 auto;
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.topbar-meta {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 720px) {
+  .topbar-meta {
+    display: none;
+  }
+}
+
+/* ---------- Notice ---------- */
+
+.notice {
+  background: rgba(57, 135, 229, 0.08);
+  border: 1px solid rgba(57, 135, 229, 0.25);
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+
+.notice strong {
+  color: var(--text-primary);
+}
+
 /* ---------- Stat tiles ---------- */
 
 .stat-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: 14px;
   margin-bottom: 24px;
 }
@@ -297,6 +352,8 @@ button {
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
 }
 
 .stat-label {
@@ -310,7 +367,14 @@ button {
 .stat-value {
   font-size: 26px;
   font-weight: 650;
-  font-variant-numeric: tabular-nums;
+  /* Proportional figures for standalone headline numbers; tabular-nums is
+     reserved for columns that must align vertically (see .trades-table). */
+  line-height: 1.15;
+}
+
+/* The one number the screen leads with. */
+.stat-tile.hero .stat-value {
+  font-size: 34px;
 }
 
 .stat-value.good {
@@ -327,6 +391,16 @@ button {
   margin-top: 6px;
 }
 
+/* A caveat the reader must not miss when reading the value above it — e.g.
+   trades excluded from a total, or positions closed by the clock rather than
+   by the strategy. */
+.stat-hint {
+  color: var(--warning);
+  font-size: 11.5px;
+  margin-top: 6px;
+  line-height: 1.4;
+}
+
 /* ---------- Panels ---------- */
 
 .panel {
@@ -339,9 +413,10 @@ button {
 
 .panel-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 16px;
+  gap: 16px;
+  margin-bottom: 18px;
 }
 
 .panel-title {
@@ -352,9 +427,19 @@ button {
 .panel-title-muted {
   color: var(--text-muted);
   font-size: 12px;
+  margin-top: 3px;
+  line-height: 1.45;
 }
 
 /* ---------- Table ---------- */
+
+/* Wide trade tables scroll inside their own panel rather than pushing the
+   whole page sideways. */
+.table-scroll {
+  overflow-x: auto;
+  margin: 0 -4px;
+  padding: 0 4px;
+}
 
 .trades-table {
   width: 100%;
@@ -366,22 +451,82 @@ button {
   text-align: left;
   color: var(--text-muted);
   font-weight: 500;
-  font-size: 11.5px;
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.03em;
   padding: 8px 10px;
   border-bottom: 1px solid var(--gridline);
+  white-space: nowrap;
 }
 
 .trades-table td {
-  padding: 10px 10px;
+  padding: 10px;
   border-bottom: 1px solid var(--gridline);
   font-variant-numeric: tabular-nums;
   color: var(--text-primary);
 }
 
+.trades-table tbody tr:hover td {
+  background: rgba(255, 255, 255, 0.025);
+}
+
 .trades-table tr:last-child td {
   border-bottom: none;
+}
+
+/* Numbers right-align so magnitudes can be compared down a column at a glance. */
+.trades-table th.num,
+.trades-table td.num {
+  text-align: right;
+}
+
+.trades-table td.money {
+  font-weight: 600;
+}
+
+.trades-table td.good,
+.chart-tooltip .good {
+  color: var(--good);
+}
+
+.trades-table td.critical,
+.chart-tooltip .critical {
+  color: var(--critical);
+}
+
+/* Supporting values — present when you look for them, quiet when you don't. */
+.trades-table td.dim,
+.trades-table .dim {
+  color: var(--text-muted);
+}
+
+.trades-table td.nowrap {
+  white-space: nowrap;
+}
+
+.trades-table tr.row-warn td {
+  background: rgba(250, 178, 25, 0.06);
+}
+
+/* A small provenance/status marker sitting beside a value — "marked",
+   "open pending", "stuck". Never the only carrier of meaning. */
+.inline-flag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-muted);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.inline-flag.warn {
+  background: rgba(250, 178, 25, 0.16);
+  color: var(--warning);
 }
 
 .badge {
@@ -392,6 +537,7 @@ button {
   border-radius: 999px;
   font-size: 11.5px;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .badge.call {
@@ -404,14 +550,68 @@ button {
   color: var(--critical);
 }
 
-.badge.pending {
+/* An exit signal — same side hue, lower emphasis than the entry it closes. */
+.badge.ghost {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px currentColor;
+  opacity: 0.75;
+}
+
+.badge.warn {
   background: rgba(250, 178, 25, 0.15);
   color: var(--warning);
 }
 
-.badge.filled {
+.badge.good {
   background: rgba(12, 163, 12, 0.15);
   color: var(--good);
+}
+
+.badge.neutral {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--text-secondary);
+}
+
+/* ---------- Chart tooltip ---------- */
+
+.chart-tooltip {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 12.5px;
+  min-width: 170px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.chart-tooltip-head {
+  color: var(--text-primary);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.chart-tooltip-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 3px;
+}
+
+.chart-tooltip-row span {
+  color: var(--text-muted);
+}
+
+.chart-tooltip-row strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-tooltip-foot {
+  color: var(--text-muted);
+  font-size: 11.5px;
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px solid var(--gridline);
 }
 
 /* ---------- Pagination ---------- */

@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../AuthContext';
 import {
   fetchPnlSummary,
-  fetchPnlMonthly,
+  fetchPnlDaily,
   fetchRunningTrades,
   fetchTrades,
   fetchPositions,
@@ -10,54 +10,53 @@ import {
 } from '../api';
 import Sidebar from '../components/Sidebar';
 import StatTile from '../components/StatTile';
-import MonthlyPnlChart from '../components/MonthlyPnlChart';
+import EquityCurveChart from '../components/EquityCurveChart';
+import DailyPnlChart from '../components/DailyPnlChart';
 import RunningTradesTable from '../components/RunningTradesTable';
 import RecentTradesTable from '../components/RecentTradesTable';
 import PositionsTable from '../components/PositionsTable';
 import WebhookLogsTable from '../components/WebhookLogsTable';
+import { formatMoney, tone } from '../utils/format';
 
 const REFRESH_MS = 30_000;
 const CLOSED_TRADES_PAGE_SIZE = 20;
 
 const PAGE_TITLES = {
-  overview: { title: 'Overview', sub: 'P&L, running trades and monthly performance' },
-  'closed-trades': { title: 'Closed Trades', sub: 'Full history of closed positions' },
+  overview: { title: 'Overview', sub: 'Realised P&L, open positions and daily performance' },
+  'closed-trades': { title: 'Closed Trades', sub: 'Full history — option premium and index level side by side' },
   'webhook-logs': { title: 'Webhook Logs', sub: 'Every TradingView call and how it was handled' },
-  positions: { title: 'Positions', sub: 'Current state per symbol' },
+  positions: { title: 'Positions', sub: 'Current state machine per symbol' },
 };
-
-function formatCurrency(n) {
-  const sign = n > 0 ? '+' : '';
-  return `${sign}₹${n.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
-}
 
 export default function Dashboard() {
   const { logout } = useAuth();
   const [page, setPage] = useState('overview');
 
   const [summary, setSummary] = useState(null);
-  const [months, setMonths] = useState(null);
+  const [days, setDays] = useState(null);
   const [running, setRunning] = useState(null);
   const [positions, setPositions] = useState(null);
   const [webhookLogs, setWebhookLogs] = useState(null);
 
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   const loadAll = useCallback(async () => {
     try {
-      const [summaryRes, monthlyRes, runningRes, positionsRes, webhookLogsRes] = await Promise.all([
+      const [summaryRes, dailyRes, runningRes, positionsRes, webhookLogsRes] = await Promise.all([
         fetchPnlSummary(),
-        fetchPnlMonthly(),
+        fetchPnlDaily(),
         fetchRunningTrades(),
         fetchPositions(),
         fetchWebhookLogs({ limit: 30 }),
       ]);
       setSummary(summaryRes);
-      setMonths(monthlyRes.months);
+      setDays(dailyRes.days);
       setRunning(runningRes.trades);
       setPositions(positionsRes.positions);
       setWebhookLogs(webhookLogsRes.logs);
+      setLastUpdated(new Date());
       setError('');
     } catch (err) {
       if (err.status === 401) {
@@ -78,6 +77,14 @@ export default function Dashboard() {
 
   const { title, sub } = PAGE_TITLES[page];
 
+  // Marked-to-market exposure across everything currently open. Shown beside
+  // realised P&L so the headline number is never mistaken for the whole story.
+  const openPnl = (running || []).reduce(
+    (sum, t) => (t.unrealized_pnl == null ? sum : sum + Number(t.unrealized_pnl)),
+    0
+  );
+  const hasOpen = (running || []).length > 0;
+
   return (
     <div className="layout">
       <Sidebar active={page} onNavigate={setPage} />
@@ -91,9 +98,16 @@ export default function Dashboard() {
               <div className="topbar-sub">{sub}</div>
             </div>
           </div>
-          <button className="logout-btn" onClick={logout}>
-            Log out
-          </button>
+          <div className="topbar-actions">
+            {lastUpdated && (
+              <span className="topbar-meta">
+                Updated {lastUpdated.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false })} IST
+              </span>
+            )}
+            <button className="logout-btn" onClick={logout}>
+              Log out
+            </button>
+          </div>
         </div>
 
         <div className="content">
@@ -105,42 +119,78 @@ export default function Dashboard() {
             <>
               {page === 'overview' && (
                 <>
+                  {/* Sandbox mode is not a detail — no order this bridge places
+                      is ever executed, so every figure below is a mark against
+                      real option prices, not a broker fill. Saying so once, at
+                      the top, is cheaper than every number being ambiguous. */}
+                  <div className="notice">
+                    <strong>Paper trading.</strong> Upstox&rsquo;s sandbox accepts orders but never fills them, so P&amp;L
+                    is marked against real traded option premiums with slippage charged on both legs — not broker fills.
+                  </div>
+
                   <div className="stat-grid">
                     <StatTile
-                      label="Total P&L"
-                      value={summary ? formatCurrency(summary.totalPnl) : '—'}
-                      tone={summary && summary.totalPnl >= 0 ? 'good' : 'critical'}
-                      sub={`${summary?.totalClosedTrades ?? 0} closed trades`}
+                      hero
+                      label="Realised P&L"
+                      value={summary ? formatMoney(summary.totalPnl) : '—'}
+                      tone={summary ? tone(summary.totalPnl) : undefined}
+                      sub={`${summary?.pricedTrades ?? 0} closed trades`}
+                      hint={
+                        summary?.unpricedTrades
+                          ? `${summary.unpricedTrades} trade(s) excluded — premium unavailable`
+                          : null
+                      }
                     />
                     <StatTile
-                      label="Today's P&L"
-                      value={summary ? formatCurrency(summary.todayPnl) : '—'}
-                      tone={summary && summary.todayPnl >= 0 ? 'good' : 'critical'}
+                      label="Today"
+                      value={summary ? formatMoney(summary.todayPnl) : '—'}
+                      tone={summary ? tone(summary.todayPnl) : undefined}
+                      sub="Closed today (IST)"
                     />
                     <StatTile
-                      label="Running trades"
+                      label="Open positions"
                       value={summary?.runningTrades ?? 0}
-                      sub="Open positions right now"
+                      sub={hasOpen ? `${formatMoney(openPnl)} unrealised` : 'Flat'}
+                      tone={hasOpen ? tone(openPnl) : undefined}
                     />
                     <StatTile
                       label="Win rate"
                       value={summary ? `${summary.winRate}%` : '—'}
                       sub={`${summary?.wins ?? 0}W / ${summary?.losses ?? 0}L`}
+                      hint={
+                        summary?.forceClosedTrades
+                          ? `${summary.forceClosedTrades} closed by the clock, not the strategy`
+                          : null
+                      }
                     />
                   </div>
 
                   <div className="panel">
                     <div className="panel-header">
-                      <div className="panel-title">Monthly P&L</div>
-                      <div className="panel-title-muted">Realized, per calendar month</div>
+                      <div>
+                        <div className="panel-title">Equity curve</div>
+                        <div className="panel-title-muted">Cumulative realised P&amp;L, by trading day</div>
+                      </div>
                     </div>
-                    <MonthlyPnlChart data={months} />
+                    <EquityCurveChart data={days} />
                   </div>
 
                   <div className="panel">
                     <div className="panel-header">
-                      <div className="panel-title">Running trades</div>
-                      <div className="panel-title-muted">Auto-refreshes every 30s</div>
+                      <div>
+                        <div className="panel-title">P&amp;L per day</div>
+                        <div className="panel-title-muted">Above the line is profit; every bar is labelled</div>
+                      </div>
+                    </div>
+                    <DailyPnlChart data={days} />
+                  </div>
+
+                  <div className="panel">
+                    <div className="panel-header">
+                      <div>
+                        <div className="panel-title">Open positions</div>
+                        <div className="panel-title-muted">Marked to the latest traded premium · refreshes every 30s</div>
+                      </div>
                     </div>
                     <RunningTradesTable trades={running} />
                   </div>
@@ -152,8 +202,10 @@ export default function Dashboard() {
               {page === 'webhook-logs' && (
                 <div className="panel">
                   <div className="panel-header">
-                    <div className="panel-title">Recent webhook calls</div>
-                    <div className="panel-title-muted">Latest 30 · auto-refreshes every 30s</div>
+                    <div>
+                      <div className="panel-title">Recent webhook calls</div>
+                      <div className="panel-title-muted">Latest 30 · refreshes every 30s</div>
+                    </div>
                   </div>
                   <WebhookLogsTable logs={webhookLogs} />
                 </div>
@@ -162,7 +214,12 @@ export default function Dashboard() {
               {page === 'positions' && (
                 <div className="panel">
                   <div className="panel-header">
-                    <div className="panel-title">Symbol positions</div>
+                    <div>
+                      <div className="panel-title">Symbol positions</div>
+                      <div className="panel-title-muted">
+                        A symbol stuck off FLAT blocks every new signal for it
+                      </div>
+                    </div>
                   </div>
                   <PositionsTable positions={positions} />
                 </div>
@@ -211,7 +268,12 @@ function ClosedTradesPage({ onUnauthorized }) {
   return (
     <div className="panel">
       <div className="panel-header">
-        <div className="panel-title">Closed trades</div>
+        <div>
+          <div className="panel-title">Closed trades</div>
+          <div className="panel-title-muted">
+            Premium is what the option cost — P&amp;L comes from it. Index is where BANKNIFTY was.
+          </div>
+        </div>
         <div className="panel-title-muted">{total} total</div>
       </div>
 
