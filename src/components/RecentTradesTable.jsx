@@ -27,6 +27,18 @@ function signalBadge(signalType) {
  */
 function reasonBadge(reason) {
   if (!reason || reason === 'signal') return <span className="badge neutral">Signal</span>;
+
+  // Premium-based exits are the good kind — they book a profit or cap a loss
+  // instead of waiting for the lagging score. They get their own tone so a
+  // glance down the column shows how often the strategy actually decided the
+  // exit versus how often a risk rule had to.
+  const premiumRules = {
+    trailing_stop: 'Trail ↓',
+    stop_loss: 'Stop loss',
+    time_stop: 'Time stop',
+  };
+  if (premiumRules[reason]) return <span className="badge call">{premiumRules[reason]}</span>;
+
   const labels = {
     eod_square_off: 'EOD square-off',
     stale_overnight: 'Stale (overnight)',
