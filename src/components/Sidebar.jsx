@@ -1,11 +1,13 @@
+import { NavLink } from 'react-router-dom';
+
 const NAV_ITEMS = [
-  { key: 'overview', label: 'Overview', icon: '▦' },
-  { key: 'closed-trades', label: 'Closed Trades', icon: '☰' },
-  { key: 'webhook-logs', label: 'Webhook Logs', icon: '⇄' },
-  { key: 'positions', label: 'Positions', icon: '◉' },
+  { path: '/', label: 'Overview', icon: '▦' },
+  { path: '/closed-trades', label: 'Closed Trades', icon: '☰' },
+  { path: '/webhook-logs', label: 'Webhook Logs', icon: '⇄' },
+  { path: '/positions', label: 'Positions', icon: '◉' },
 ];
 
-export default function Sidebar({ active, onNavigate }) {
+export default function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
@@ -20,19 +22,19 @@ export default function Sidebar({ active, onNavigate }) {
           // <=720px the labels stayed in a 64px-wide sidebar, wrapped onto two
           // lines each and spilled over the content. `title` keeps the name
           // reachable once only the icon is visible.
-          <button
-            key={item.key}
-            className={`sidebar-nav-item${active === item.key ? ' active' : ''}`}
-            onClick={() => onNavigate(item.key)}
+          <NavLink
+            key={item.path}
+            to={item.path}
+            end={item.path === '/'}
+            className={({ isActive }) => `sidebar-nav-item${isActive ? ' active' : ''}`}
             title={item.label}
             aria-label={item.label}
-            aria-current={active === item.key ? 'page' : undefined}
           >
             <span className="sidebar-nav-icon" aria-hidden="true">
               {item.icon}
             </span>
             <span className="sidebar-nav-label">{item.label}</span>
-          </button>
+          </NavLink>
         ))}
       </nav>
     </aside>

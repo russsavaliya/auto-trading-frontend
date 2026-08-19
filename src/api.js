@@ -89,3 +89,11 @@ export function fetchWebhookLogs({ processed, limit = 50, offset = 0 } = {}) {
   params.set('offset', offset);
   return request(`/api/webhook-logs?${params.toString()}`);
 }
+
+export function fetchConfig() {
+  return request('/api/config');
+}
+
+export function updateTradingEnabled(enabled) {
+  return request('/api/config', { method: 'PATCH', body: { trading_enabled: enabled } });
+}
