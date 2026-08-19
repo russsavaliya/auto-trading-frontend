@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import StatTile from '../components/StatTile';
 import EquityCurveChart from '../components/EquityCurveChart';
@@ -7,6 +8,17 @@ import { formatMoney, tone } from '../utils/format';
 
 export default function Overview() {
   const { summary, days, running } = useOutletContext();
+
+  // Date keys from /api/pnl/daily are 'YYYY-MM-DD', same shape as a native
+  // date input's value, so a plain string comparison is a valid range filter.
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const hasDateFilter = Boolean(dateFrom || dateTo);
+
+  const filteredDays = useMemo(() => {
+    if (!days || !hasDateFilter) return days;
+    return days.filter((d) => (!dateFrom || d.date >= dateFrom) && (!dateTo || d.date <= dateTo));
+  }, [days, dateFrom, dateTo, hasDateFilter]);
 
   // Marked-to-market exposure across everything currently open. Shown beside
   // realised P&L so the headline number is never mistaken for the whole story.
@@ -67,6 +79,16 @@ export default function Overview() {
       <div className="panel">
         <div className="panel-header">
           <div>
+            <div className="panel-title">Open positions</div>
+            <div className="panel-title-muted">Marked to the latest traded premium · refreshes every 30s</div>
+          </div>
+        </div>
+        <RunningTradesTable trades={running} />
+      </div>
+
+      <div className="panel">
+        <div className="panel-header">
+          <div>
             <div className="panel-title">Equity curve</div>
             <div className="panel-title-muted">Cumulative realised P&amp;L, by trading day</div>
           </div>
@@ -80,18 +102,42 @@ export default function Overview() {
             <div className="panel-title">P&amp;L per day</div>
             <div className="panel-title-muted">Above the line is profit; every bar is labelled</div>
           </div>
-        </div>
-        <DailyPnlChart data={days} />
-      </div>
-
-      <div className="panel">
-        <div className="panel-header">
-          <div>
-            <div className="panel-title">Open positions</div>
-            <div className="panel-title-muted">Marked to the latest traded premium · refreshes every 30s</div>
+          <div className="date-filter">
+            <input
+              type="date"
+              value={dateFrom}
+              max={dateTo || undefined}
+              onChange={(e) => setDateFrom(e.target.value)}
+              aria-label="From date"
+            />
+            <span className="date-filter-sep">–</span>
+            <input
+              type="date"
+              value={dateTo}
+              min={dateFrom || undefined}
+              onChange={(e) => setDateTo(e.target.value)}
+              aria-label="To date"
+            />
+            {hasDateFilter && (
+              <button
+                type="button"
+                className="date-filter-clear"
+                onClick={() => {
+                  setDateFrom('');
+                  setDateTo('');
+                }}
+                title="Clear date filter"
+                aria-label="Clear date filter"
+              >
+                ×
+              </button>
+            )}
           </div>
         </div>
-        <RunningTradesTable trades={running} />
+        <DailyPnlChart
+          data={filteredDays}
+          emptyMessage={hasDateFilter ? 'No closed trades in this date range.' : undefined}
+        />
       </div>
     </>
   );

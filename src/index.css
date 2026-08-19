@@ -468,6 +468,53 @@ button {
   line-height: 1.45;
 }
 
+/* ---------- Date filter ---------- */
+
+.date-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.date-filter input[type='date'] {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 12.5px;
+  padding: 6px 8px;
+  color-scheme: dark;
+}
+
+.date-filter input[type='date']:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.date-filter-sep {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.date-filter-clear {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  width: 22px;
+  height: 22px;
+  line-height: 1;
+  cursor: pointer;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.date-filter-clear:hover {
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
 /* ---------- Table ---------- */
 
 /* Wide trade tables scroll inside their own panel rather than pushing the

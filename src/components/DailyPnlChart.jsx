@@ -84,9 +84,9 @@ function BarValueLabel({ x, y, width, height, value }) {
   );
 }
 
-export default function DailyPnlChart({ data }) {
+export default function DailyPnlChart({ data, emptyMessage = 'No closed trades yet.' }) {
   if (!data || data.length === 0) {
-    return <div className="empty-state">No closed trades yet.</div>;
+    return <div className="empty-state">{emptyMessage}</div>;
   }
 
   const { domain, ticks } = niceBounds(data.map((d) => d.pnl), { padRatio: 0.22 });
