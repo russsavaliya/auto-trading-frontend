@@ -27,6 +27,18 @@ function glossReason(reason) {
   if (exact) return exact;
 
   // Reasons that carry detail after a prefix, e.g. "invalid_state: already IN_CALL".
+  // The daily cap and the re-entry cooldown are the system working correctly,
+  // not faults — they are the rules that keep trade count down, which is the
+  // one intervention measured to help in every sample. They must read as
+  // "skipped on purpose", never as an error.
+  if (reason.startsWith('daily_cap_reached')) {
+    const n = reason.match(/(\d+) of (\d+)/);
+    return [n ? `Daily cap — ${n[2]} trades already taken` : 'Daily cap reached', false];
+  }
+  if (reason.startsWith('re_entry_cooldown')) {
+    const why = reason.match(/: (\w+) on trade/);
+    return [why ? `Cooling off after ${why[1].replace('_', ' ')}` : 'Re-entry cooldown', false];
+  }
   if (reason.startsWith('past_entry_cutoff')) return [`Refused — ${reason.replace('past_entry_cutoff ', '')}`, false];
   if (reason.startsWith('invalid_state')) return [reason.replace('invalid_state: ', 'Wrong state — '), false];
   if (reason.startsWith('instrument_resolution_failed')) return ['Could not resolve the ATM contract', true];
