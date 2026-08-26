@@ -1,0 +1,148 @@
+@import 'tailwindcss';
+
+/* ==========================================================================
+   Design tokens
+   --------------------------------------------------------------------------
+   Registered through @theme so every token also exists as a Tailwind utility
+   (`bg-canvas`, `text-muted`, `border-line`). Defining a colour here and then
+   hard-coding the same hex in a component is what lets a palette drift, so
+   nothing below should ever be repeated inline — charts read them back via
+   getComputedStyle in lib/chartTheme.js.
+
+   The palette is warm-neutral (stone), not grey: #fafaf9 canvas against a
+   #0c0a09 ink. A pure-grey neutral next to these two reads slightly blue and
+   makes the whole page look cold.
+   ========================================================================== */
+
+@theme {
+  /* Surfaces, back to front */
+  --color-canvas: #fafaf9; /* page */
+  --color-surface: #ffffff; /* cards, tables, popovers */
+  --color-subtle: #f5f5f4; /* inset rows, hover, chips */
+  --color-subtle-strong: #ececea; /* pressed / active inset */
+
+  /* Text, most to least emphasis */
+  --color-ink: #0c0a09; /* headings, primary numbers */
+  --color-ink-soft: #44403c; /* body copy */
+  --color-muted: #78716c; /* labels, secondary values */
+  --color-faint: #a8a29e; /* axis ticks, placeholders */
+
+  /* Lines */
+  --color-line: #e7e5e4;
+  --color-line-strong: #d6d3d1;
+
+  /* Brand accent — carries navigation and focus, never P&L sign */
+  --color-brand: #4f46e5;
+  --color-brand-soft: #eef2ff;
+  --color-brand-ring: #c7d2fe;
+
+  /* Semantic. Text-weight shades are all >= 4.5:1 on both canvas and
+     surface; the -soft tints are backgrounds only, never text. */
+  --color-profit: #047857;
+  --color-profit-soft: #ecfdf5;
+  --color-profit-line: #a7f3d0;
+  --color-loss: #b91c1c;
+  --color-loss-soft: #fef2f2;
+  --color-loss-line: #fecaca;
+  --color-warn: #b45309;
+  --color-warn-soft: #fffbeb;
+  --color-warn-line: #fde68a;
+
+  /* Option side. Deliberately NOT green/red: on a P&L dashboard those two
+     hues already mean profit and loss, and a red "PUT" badge next to a red
+     loss figure reads as if the side were the bad news. Indigo/orange is
+     distinguishable under deuteranopia as well. */
+  --color-side-call: #4f46e5;
+  --color-side-call-soft: #eef2ff;
+  --color-side-put: #c2410c;
+  --color-side-put-soft: #fff7ed;
+
+  /* Chart-only variants: larger areas can carry more saturation than text. */
+  --color-chart-profit: #059669;
+  --color-chart-loss: #e11d48;
+
+  --font-sans:
+    'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --radius-card: 0.875rem;
+
+  /* Cards sit on a near-white canvas, so elevation has to come from a hairline
+     plus a very soft shadow — a heavy drop shadow looks muddy on #fafaf9. */
+  --shadow-card: 0 1px 2px rgb(12 10 9 / 0.04), 0 1px 3px rgb(12 10 9 / 0.03);
+  --shadow-raised: 0 4px 12px rgb(12 10 9 / 0.06), 0 2px 4px rgb(12 10 9 / 0.04);
+  --shadow-pop: 0 10px 30px rgb(12 10 9 / 0.1), 0 2px 6px rgb(12 10 9 / 0.05);
+}
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+
+@layer base {
+  html {
+    /* The dashboard is a single light surface. Declaring it stops the browser
+       painting form controls and scrollbars from a dark system preference. */
+    color-scheme: light;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-canvas text-ink font-sans antialiased;
+  }
+
+  /* Every figure on this dashboard is read down a column or compared against
+     the same figure a second later, so digits must not change width. */
+  .tnum,
+  table,
+  input[type='date'] {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+  }
+
+  :focus-visible {
+    @apply outline-brand outline-2 outline-offset-2;
+  }
+
+  ::selection {
+    @apply bg-brand-ring text-ink;
+  }
+}
+
+/* ==========================================================================
+   Utilities
+   ========================================================================== */
+
+@layer utilities {
+  /* Recharts renders its own DOM for tooltips and axes; these two hooks are
+     the only places where styling it from the outside is unavoidable. */
+  .recharts-surface:focus,
+  .recharts-wrapper:focus {
+    outline: none;
+  }
+
+  /* A wide table scrolls inside its own card rather than pushing the page
+     sideways. The fade hints that there is more to the right. */
+  .scroll-x {
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line-strong) transparent;
+  }
+
+  .scroll-x::-webkit-scrollbar {
+    height: 8px;
+  }
+
+  .scroll-x::-webkit-scrollbar-thumb {
+    background: var(--color-line-strong);
+    border-radius: 999px;
+  }
+
+  .scroll-x::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}

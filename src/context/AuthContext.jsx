@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback } from 'react';
-import { getStoredPassword, clearStoredPassword, login as apiLogin } from './api';
+import { getStoredPassword, clearStoredPassword } from '@/lib/apiClient';
+import { login as apiLogin } from '@/api/auth';
 
 const AuthContext = createContext(null);
 

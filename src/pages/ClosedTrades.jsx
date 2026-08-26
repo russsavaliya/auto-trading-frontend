@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useAuth } from '../AuthContext';
-import { fetchTrades } from '../api';
-import RecentTradesTable from '../components/RecentTradesTable';
+import { useAuth } from '@/context/AuthContext';
+import { fetchTrades } from '@/api';
+import { Card, CardHeader, CardBody } from '@/components/ui/Card';
+import { ErrorBanner } from '@/components/ui/Feedback';
+import { Pagination } from '@/components/ui/Pagination';
+import RecentTradesTable from '@/components/tables/RecentTradesTable';
 
 const CLOSED_TRADES_PAGE_SIZE = 20;
 
@@ -40,42 +43,34 @@ export default function ClosedTrades() {
   const totalPages = Math.max(1, Math.ceil(total / CLOSED_TRADES_PAGE_SIZE));
 
   return (
-    <div className="panel">
-      <div className="panel-header">
-        <div>
-          <div className="panel-title">Closed trades</div>
-          <div className="panel-title-muted">
-            Premium is what the option cost — P&amp;L comes from it. Index is where BANKNIFTY was.
-          </div>
-        </div>
-        <div className="panel-title-muted">{total} total</div>
-      </div>
+    <>
+      {error && <ErrorBanner>{error}</ErrorBanner>}
 
-      {error && <div className="error-banner">{error}</div>}
+      <Card>
+        <CardHeader
+          title="Closed trades"
+          description="Premium is what the option cost — P&L comes from it. Index is where BANKNIFTY was."
+          actions={
+            <span className="text-muted tnum text-xs">
+              {total.toLocaleString('en-IN')} total
+            </span>
+          }
+        />
+        <CardBody>
+          <RecentTradesTable trades={trades} />
 
-      <RecentTradesTable trades={trades} />
-
-      {trades && trades.length > 0 && (
-        <div className="pagination">
-          <button
-            className="pagination-btn"
-            disabled={offset === 0}
-            onClick={() => setOffset(Math.max(0, offset - CLOSED_TRADES_PAGE_SIZE))}
-          >
-            ← Prev
-          </button>
-          <span className="pagination-info">
-            Page {page} of {totalPages}
-          </span>
-          <button
-            className="pagination-btn"
-            disabled={offset + CLOSED_TRADES_PAGE_SIZE >= total}
-            onClick={() => setOffset(offset + CLOSED_TRADES_PAGE_SIZE)}
-          >
-            Next →
-          </button>
-        </div>
-      )}
-    </div>
+          {trades && trades.length > 0 && (
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              onPrev={() => setOffset(Math.max(0, offset - CLOSED_TRADES_PAGE_SIZE))}
+              onNext={() => setOffset(offset + CLOSED_TRADES_PAGE_SIZE)}
+              disablePrev={offset === 0}
+              disableNext={offset + CLOSED_TRADES_PAGE_SIZE >= total}
+            />
+          )}
+        </CardBody>
+      </Card>
+    </>
   );
 }

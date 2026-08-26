@@ -112,14 +112,16 @@ export const tone = (n) => (n > 0 ? 'good' : n < 0 ? 'critical' : 'flat');
  * Letting Recharts auto-scale a padded domain produced ticks at arbitrary
  * values — the break-even line on the daily chart came out labelled "₹10",
  * which reads as if zero were somewhere else. On a P&L chart the zero tick is
- * the most important label on the axis, so the bounds are snapped to a round
- * step and the ticks are generated from it, which guarantees an exact 0.
+ * the most important label on the axis, so the ticks are generated as exact
+ * multiples of a round step, which guarantees an exact 0.
  *
  * `padRatio` leaves headroom so direct labels above/below the extreme bars are
  * not clipped.
  */
 export function niceBounds(values, { padRatio = 0.2, maxTicks = 6 } = {}) {
   const nums = values.filter((v) => Number.isFinite(v));
+  // Zero is always inside the range: on a P&L chart break-even is part of the
+  // frame, not a value that has to appear in the data to be drawn.
   const max = Math.max(...nums, 0);
   const min = Math.min(...nums, 0);
   const span = Math.max(Math.abs(max), Math.abs(min)) || 1;
@@ -127,16 +129,43 @@ export function niceBounds(values, { padRatio = 0.2, maxTicks = 6 } = {}) {
   // Half-decade step: 1000-ish spans snap to 500, 100-ish to 50, and so on.
   const step = Math.pow(10, Math.floor(Math.log10(span))) / 2;
   const pad = span * padRatio;
+
   const lo = Math.floor((min - pad) / step) * step;
   const hi = Math.ceil((max + pad) / step) * step;
 
   let tickStep = step;
   while ((hi - lo) / tickStep > maxTicks) tickStep *= 2;
 
+  // Ticks are the multiples of `tickStep` that fall INSIDE [lo, hi] — they are
+  // not walked outward from `lo`.
+  //
+  // Walking from `lo` was the bug: `lo` is snapped to `step`, so as soon as
+  // `tickStep` had to grow past it `lo` sits off the tick lattice and the walk
+  // steps straight over zero. The real equity curve produced −6500 / −4500 /
+  // −2500 / −500 / 1500 — no break-even label, on the one chart whose whole
+  // question is "am I above or below water".
+  //
+  // Snapping `lo` and `hi` to `tickStep` instead would also fix it, but it
+  // inflates the axis: on live data the daily chart went from ±6.5k to ±8k for
+  // a −5.0k…+3.4k dataset, nearly half the plot area left empty. Leaving the
+  // domain tight and only choosing which multiples to label costs nothing —
+  // an axis whose end ticks stop short of the edge is normal.
+  //
+  // Zero is always among them: lo <= 0 <= hi, so index 0 is always in range.
+  const firstIndex = Math.ceil(lo / tickStep);
+  const lastIndex = Math.floor(hi / tickStep);
+
+  // Indexed rather than accumulated — `v += tickStep` drifts, and a zero that
+  // arrives as −1e-13 renders as "−₹0".
   const ticks = [];
-  for (let v = lo; v <= hi + tickStep / 1000; v += tickStep) {
-    ticks.push(Number(v.toPrecision(12)));
+  for (let i = firstIndex; i <= lastIndex; i++) {
+    ticks.push(Number((i * tickStep).toPrecision(12)));
   }
 
   return { domain: [lo, hi], ticks };
+}
+
+/** "3 trades · 2W / 1L" — the shared footer line on both chart tooltips. */
+export function formatTradeCount(d) {
+  return `${d.trades} trade${d.trades === 1 ? '' : 's'} · ${d.wins}W / ${d.losses}L`;
 }

@@ -1,21 +1,25 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
-import { useAuth } from '../AuthContext';
+import { useAuth } from '@/context/AuthContext';
 import {
   fetchPnlSummary,
   fetchPnlDaily,
   fetchRunningTrades,
   fetchPositions,
   fetchWebhookLogs,
-} from '../api';
+} from '@/api';
+import { ErrorBanner, LoadingState } from '@/components/ui/Feedback';
 import Sidebar from './Sidebar';
-import TradingToggle from './TradingToggle';
+import Topbar from './Topbar';
 
 const REFRESH_MS = 30_000;
 
 const PAGE_TITLES = {
   '/': { title: 'Overview', sub: 'Realised P&L, open positions and daily performance' },
-  '/closed-trades': { title: 'Closed Trades', sub: 'Full history — option premium and index level side by side' },
+  '/closed-trades': {
+    title: 'Closed Trades',
+    sub: 'Full history — option premium and index level side by side',
+  },
   '/webhook-logs': { title: 'Webhook Logs', sub: 'Every TradingView call and how it was handled' },
   '/positions': { title: 'Positions', sub: 'Current state machine per symbol' },
 };
@@ -76,40 +80,27 @@ export default function DashboardLayout() {
   const { title, sub } = PAGE_TITLES[location.pathname] || PAGE_TITLES['/'];
 
   return (
-    <div className="layout">
+    <div className="flex min-h-dvh">
       <Sidebar />
 
-      <div className="main">
-        <div className="topbar">
-          <div className="topbar-title">
-            <span className={`status-dot${error ? ' offline' : ''}`} />
-            <div>
-              <div>{title}</div>
-              <div className="topbar-sub">{sub}</div>
-            </div>
-          </div>
-          <div className="topbar-actions">
-            {lastUpdated && (
-              <span className="topbar-meta">
-                Updated {lastUpdated.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false })} IST
-              </span>
-            )}
-            <TradingToggle onUnauthorized={logout} />
-            <button className="logout-btn" onClick={logout}>
-              Log out
-            </button>
-          </div>
-        </div>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <Topbar
+          title={title}
+          description={sub}
+          lastUpdated={lastUpdated}
+          offline={Boolean(error)}
+          onLogout={logout}
+        />
 
-        <div className="content">
-          {error && <div className="error-banner">{error}</div>}
+        <main className="mx-auto w-full max-w-[80rem] flex-1 px-4 py-6 sm:px-6">
+          {error && <ErrorBanner>{error}</ErrorBanner>}
 
           {loading ? (
-            <div className="loading-state">Loading dashboard…</div>
+            <LoadingState>Loading dashboard…</LoadingState>
           ) : (
             <Outlet context={{ summary, days, running, positions, webhookLogs }} />
           )}
-        </div>
+        </main>
       </div>
     </div>
   );

@@ -1,20 +1,19 @@
 import { useOutletContext } from 'react-router-dom';
-import PositionsTable from '../components/PositionsTable';
+import { Card, CardHeader, CardBody } from '@/components/ui/Card';
+import PositionsTable from '@/components/tables/PositionsTable';
 
 export default function PositionsPage() {
   const { positions } = useOutletContext();
 
   return (
-    <div className="panel">
-      <div className="panel-header">
-        <div>
-          <div className="panel-title">Symbol positions</div>
-          <div className="panel-title-muted">
-            A symbol stuck off FLAT blocks every new signal for it
-          </div>
-        </div>
-      </div>
-      <PositionsTable positions={positions} />
-    </div>
+    <Card>
+      <CardHeader
+        title="Symbol positions"
+        description="A symbol stuck off FLAT blocks every new signal for it"
+      />
+      <CardBody>
+        <PositionsTable positions={positions} />
+      </CardBody>
+    </Card>
   );
 }

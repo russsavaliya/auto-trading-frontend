@@ -10,10 +10,17 @@ import {
   ReferenceLine,
   LabelList,
 } from 'recharts';
-import { formatMoney, formatMoneyCompact, formatDay, niceBounds } from '../utils/format';
-
-const GOOD = '#0ca30c';
-const CRITICAL = '#e66767';
+import { BarChart3 } from 'lucide-react';
+import {
+  formatMoney,
+  formatMoneyCompact,
+  formatDay,
+  formatTradeCount,
+  niceBounds,
+} from '@/utils/format';
+import { chartColors, axisTheme } from '@/lib/chartTheme';
+import { EmptyState } from '@/components/ui/Feedback';
+import { TooltipCard } from './ChartTooltip';
 
 /**
  * P&L per trading day — a diverging bar chart centred on break-even.
@@ -33,20 +40,14 @@ function DayTooltip({ active, payload }) {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
   return (
-    <div className="chart-tooltip">
-      <div className="chart-tooltip-head">{formatDay(d.date)}</div>
-      <div className="chart-tooltip-row">
-        <span>Day P&amp;L</span>
-        <strong className={d.pnl >= 0 ? 'good' : 'critical'}>{formatMoney(d.pnl)}</strong>
-      </div>
-      <div className="chart-tooltip-row">
-        <span>Running total</span>
-        <strong className={d.cumulative >= 0 ? 'good' : 'critical'}>{formatMoney(d.cumulative)}</strong>
-      </div>
-      <div className="chart-tooltip-foot">
-        {d.trades} trade{d.trades === 1 ? '' : 's'} · {d.wins}W / {d.losses}L
-      </div>
-    </div>
+    <TooltipCard
+      heading={formatDay(d.date)}
+      rows={[
+        { label: 'Day P&L', value: d.pnl, display: formatMoney(d.pnl) },
+        { label: 'Running total', value: d.cumulative, display: formatMoney(d.cumulative) },
+      ]}
+      footer={formatTradeCount(d)}
+    />
   );
 }
 
@@ -58,7 +59,7 @@ function DayTooltip({ active, payload }) {
  * the baseline and collided with it. Positioning from the sign instead keeps
  * the label outside the bar in both directions.
  */
-function BarValueLabel({ x, y, width, height, value }) {
+function BarValueLabel({ x, y, width, height, value, labelFill }) {
   if (value === null || value === undefined) return null;
   const positive = value >= 0;
 
@@ -75,7 +76,7 @@ function BarValueLabel({ x, y, width, height, value }) {
       x={x + width / 2}
       y={positive ? top - 7 : bottom + 15}
       textAnchor="middle"
-      fill="#c3c2b7"
+      fill={labelFill}
       fontSize={11}
       fontWeight={600}
     >
@@ -86,43 +87,45 @@ function BarValueLabel({ x, y, width, height, value }) {
 
 export default function DailyPnlChart({ data, emptyMessage = 'No closed trades yet.' }) {
   if (!data || data.length === 0) {
-    return <div className="empty-state">{emptyMessage}</div>;
+    return <EmptyState icon={BarChart3}>{emptyMessage}</EmptyState>;
   }
 
-  const { domain, ticks } = niceBounds(data.map((d) => d.pnl), { padRatio: 0.22 });
+  const c = chartColors();
+  const axis = axisTheme(c);
+  const { domain, ticks } = niceBounds(
+    data.map((d) => d.pnl),
+    { padRatio: 0.22 }
+  );
 
   return (
-    <ResponsiveContainer width="100%" height={260}>
+    <ResponsiveContainer width="100%" height={264}>
       <BarChart data={data} margin={{ top: 18, right: 12, left: 4, bottom: 4 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#2c2c2a" vertical={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke={c.line} vertical={false} />
         <XAxis
           dataKey="date"
           tickFormatter={formatDay}
-          tick={{ fill: '#898781', fontSize: 11.5 }}
-          axisLine={{ stroke: '#383835' }}
-          tickLine={false}
           minTickGap={16}
+          {...axis}
+          axisLine={{ stroke: c.line }}
         />
         <YAxis
           tickFormatter={formatMoneyCompact}
-          tick={{ fill: '#898781', fontSize: 11.5 }}
-          axisLine={false}
-          tickLine={false}
           width={58}
           domain={domain}
           ticks={ticks}
+          {...axis}
         />
-        <ReferenceLine y={0} stroke="#c3c2b7" />
-        <Tooltip content={<DayTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+        <ReferenceLine y={0} stroke={c.lineStrong} />
+        <Tooltip content={<DayTooltip />} cursor={{ fill: 'rgba(12,10,9,0.035)' }} />
         {/* Animation off: this dashboard re-fetches every 30s, and replaying a
             1.5s grow-in on each refresh makes the chart unreadable exactly when
             someone is looking at it. */}
         <Bar dataKey="pnl" radius={[4, 4, 4, 4]} maxBarSize={44} isAnimationActive={false}>
           {data.map((d) => (
-            <Cell key={d.date} fill={d.pnl >= 0 ? GOOD : CRITICAL} />
+            <Cell key={d.date} fill={d.pnl >= 0 ? c.profit : c.loss} />
           ))}
           {/* Secondary encoding — see the accessibility note above. */}
-          <LabelList dataKey="pnl" content={<BarValueLabel />} />
+          <LabelList dataKey="pnl" content={<BarValueLabel labelFill={c.muted} />} />
         </Bar>
       </BarChart>
     </ResponsiveContainer>
