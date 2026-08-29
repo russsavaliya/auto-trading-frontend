@@ -9,8 +9,10 @@ import {
   fetchWebhookLogs,
 } from '@/api';
 import { ErrorBanner, LoadingState } from '@/components/ui/Feedback';
+import { LogoMark } from './Logo';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
+import MobileNav from './MobileNav';
 
 const REFRESH_MS = 30_000;
 
@@ -77,10 +79,21 @@ export default function DashboardLayout() {
     return () => clearInterval(id);
   }, [loadAll]);
 
+  // Tapping a bottom-bar tab must land at the top of the new page. Without
+  // this the browser keeps the scroll offset across routes, so switching from
+  // halfway down a 20-row Closed Trades list to Overview drops you into the
+  // middle of the equity chart with the stat tiles above the fold — on a
+  // phone, where the tab bar makes those switches constant, it reads as the
+  // app having failed to navigate at all.
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
+
   const { title, sub } = PAGE_TITLES[location.pathname] || PAGE_TITLES['/'];
 
   return (
     <div className="flex min-h-dvh">
+      {/* md and up */}
       <Sidebar />
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -92,7 +105,10 @@ export default function DashboardLayout() {
           onLogout={logout}
         />
 
-        <main className="mx-auto w-full max-w-[80rem] flex-1 px-4 py-6 sm:px-6">
+        {/* pb-nav is the fixed tab bar's height plus the home-indicator inset:
+            without it the last card on every page ends up underneath the bar
+            with no way to scroll it clear. */}
+        <main className="pb-nav mx-auto w-full max-w-[80rem] flex-1 px-4 py-5 sm:px-6 sm:py-6 md:pb-6">
           {error && <ErrorBanner>{error}</ErrorBanner>}
 
           {loading ? (
@@ -100,8 +116,25 @@ export default function DashboardLayout() {
           ) : (
             <Outlet context={{ summary, days, running, positions, webhookLogs }} />
           )}
+
+          {/* On desktop this standing caveat lives in the sidebar footer,
+              visible on every page. The sidebar is not rendered on a phone, so
+              without this it would appear on Overview (in the Callout) and
+              nowhere else — leaving Closed Trades, Webhook Logs and Positions
+              showing rupee figures with nothing on screen saying they are
+              marks against a sandbox that never fills an order. */}
+          <p className="text-faint mt-6 flex items-start gap-2 text-[0.6875rem] leading-relaxed md:hidden">
+            <LogoMark className="size-4 shrink-0" />
+            <span>
+              <span className="text-muted font-semibold">Sandbox.</span> Orders are validated by
+              Upstox but never filled. Every figure is a mark.
+            </span>
+          </p>
         </main>
       </div>
+
+      {/* below md */}
+      <MobileNav />
     </div>
   );
 }

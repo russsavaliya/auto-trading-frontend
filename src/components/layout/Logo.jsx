@@ -26,20 +26,23 @@ export function LogoMark({ className, ...props }) {
   );
 }
 
-export function Logo({ collapsed = false, className }) {
+/**
+ * The `collapsed` (mark-only) variant is gone with the 64px icon rail it was
+ * written for — nothing rendered the wordmark-less Logo any more, and a prop
+ * with no caller is a prop that quietly rots.
+ */
+export function Logo({ className }) {
   return (
     <div className={cn('flex items-center gap-2.5', className)}>
       <LogoMark className="size-8 shrink-0" />
-      {!collapsed && (
-        <span className="min-w-0">
-          <span className="text-ink block text-sm leading-tight font-semibold tracking-tight">
-            Trading Admin
-          </span>
-          <span className="text-muted block text-[0.6875rem] leading-tight">
-            BANKNIFTY · paper
-          </span>
+      <span className="min-w-0">
+        <span className="text-ink block text-sm leading-tight font-semibold tracking-tight">
+          Trading Admin
         </span>
-      )}
+        <span className="text-muted block text-[0.6875rem] leading-tight">
+          BANKNIFTY · paper
+        </span>
+      </span>
     </div>
   );
 }

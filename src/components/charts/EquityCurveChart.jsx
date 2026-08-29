@@ -16,7 +16,8 @@ import {
   formatTradeCount,
   niceBounds,
 } from '@/utils/format';
-import { chartColors, axisTheme } from '@/lib/chartTheme';
+import { chartColors, axisTheme, chartGeometry } from '@/lib/chartTheme';
+import { useIsMobile } from '@/hooks/useMediaQuery';
 import { EmptyState } from '@/components/ui/Feedback';
 import { TooltipCard } from './ChartTooltip';
 
@@ -31,6 +32,11 @@ import { TooltipCard } from './ChartTooltip';
  * takes the profit hue when the curve is above water and the loss hue when
  * below, but the y-position against the zero reference line is the real
  * encoding; colour only reinforces it.
+ *
+ * On a phone the dots come off the line. At 320px of plot width a month of
+ * trading days puts markers closer together than their own diameter, which
+ * turns a curve into a dotted caterpillar; the active dot on touch still
+ * marks whichever point the tooltip is reporting.
  */
 function CurveTooltip({ active, payload }) {
   if (!active || !payload?.length) return null;
@@ -48,6 +54,8 @@ function CurveTooltip({ active, payload }) {
 }
 
 export default function EquityCurveChart({ data }) {
+  const compact = useIsMobile();
+
   if (!data || data.length === 0) {
     return (
       <EmptyState icon={TrendingUp}>
@@ -57,14 +65,15 @@ export default function EquityCurveChart({ data }) {
   }
 
   const c = chartColors();
-  const axis = axisTheme(c);
+  const axis = axisTheme(c, compact);
+  const geo = chartGeometry(compact);
   const last = data[data.length - 1].cumulative;
   const stroke = last < 0 ? c.loss : c.profit;
   const { domain, ticks } = niceBounds(data.map((d) => d.cumulative));
 
   return (
-    <ResponsiveContainer width="100%" height={264}>
-      <AreaChart data={data} margin={{ top: 8, right: 12, left: 4, bottom: 4 }}>
+    <ResponsiveContainer width="100%" height={geo.height}>
+      <AreaChart data={data} margin={geo.margin}>
         <defs>
           <linearGradient id="equityFill" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={stroke} stopOpacity={0.18} />
@@ -75,13 +84,13 @@ export default function EquityCurveChart({ data }) {
         <XAxis
           dataKey="date"
           tickFormatter={formatDay}
-          minTickGap={24}
+          minTickGap={compact ? 40 : 24}
           {...axis}
           axisLine={{ stroke: c.line }}
         />
         <YAxis
           tickFormatter={formatMoneyCompact}
-          width={58}
+          width={geo.yAxisWidth}
           domain={domain}
           ticks={ticks}
           {...axis}
@@ -97,8 +106,8 @@ export default function EquityCurveChart({ data }) {
           strokeWidth={2}
           fill="url(#equityFill)"
           isAnimationActive={false}
-          dot={{ r: 3, fill: c.surface, stroke, strokeWidth: 2 }}
-          activeDot={{ r: 5, fill: c.surface, stroke, strokeWidth: 2.5 }}
+          dot={compact ? false : { r: 3, fill: c.surface, stroke, strokeWidth: 2 }}
+          activeDot={{ r: compact ? 4.5 : 5, fill: c.surface, stroke, strokeWidth: 2.5 }}
         />
       </AreaChart>
     </ResponsiveContainer>

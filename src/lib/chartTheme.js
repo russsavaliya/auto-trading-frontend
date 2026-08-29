@@ -35,11 +35,30 @@ export function chartColors() {
   };
 }
 
-/** Shared axis/grid props so both charts sit on an identical frame. */
-export function axisTheme(colors) {
+/**
+ * Shared axis/grid props so both charts sit on an identical frame.
+ *
+ * `compact` is the phone variant. A 58px y-axis gutter is 18% of a 320px plot
+ * area — the axis ends up better funded than the data — so the gutter, the
+ * tick size and the plot margins all step down together below `md`. Values are
+ * still formatted with formatMoneyCompact, so nothing is truncated; the labels
+ * simply need less room than they were being given.
+ */
+export function axisTheme(colors, compact = false) {
   return {
-    tick: { fill: colors.muted, fontSize: 11.5 },
+    tick: { fill: colors.muted, fontSize: compact ? 10 : 11.5 },
     axisLine: false,
     tickLine: false,
+  };
+}
+
+/** Plot geometry that changes with the viewport, kept beside the axis theme. */
+export function chartGeometry(compact) {
+  return {
+    height: compact ? 208 : 264,
+    yAxisWidth: compact ? 40 : 58,
+    margin: compact
+      ? { top: 8, right: 6, left: 0, bottom: 0 }
+      : { top: 8, right: 12, left: 4, bottom: 4 },
   };
 }

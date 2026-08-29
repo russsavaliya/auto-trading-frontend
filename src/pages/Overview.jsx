@@ -45,9 +45,13 @@ export default function Overview() {
         premiums with slippage charged on both legs — not broker fills.
       </Callout>
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {/* Two-up from the smallest screen, with the hero across the full row.
+          One-per-row cost a whole phone viewport to show four numbers and
+          buried the open-positions table under it. */}
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 sm:mb-6 xl:grid-cols-4">
         <StatTile
           hero
+          className="col-span-2 xl:col-span-1"
           icon={Wallet}
           label="Realised P&L"
           value={summary ? formatMoney(summary.totalPnl) : '—'}
@@ -86,7 +90,7 @@ export default function Overview() {
         />
       </div>
 
-      <Card className="mb-6">
+      <Card className="mb-5 sm:mb-6">
         <CardHeader
           title="Open positions"
           description="Marked to the latest traded premium · refreshes every 30s"
@@ -96,7 +100,7 @@ export default function Overview() {
         </CardBody>
       </Card>
 
-      <Card className="mb-6">
+      <Card className="mb-5 sm:mb-6">
         <CardHeader
           title="Equity curve"
           description="Cumulative realised P&L, by trading day"
@@ -117,19 +121,24 @@ export default function Overview() {
           title="P&L per day"
           description="Above the line is profit; every bar is labelled"
           actions={
-            <div className="flex items-center gap-1.5">
+            // The two inputs share the row's width on a phone (flex-1) and
+            // fall back to their natural size once the header is wide enough
+            // to sit them beside the title.
+            <div className="flex w-full items-center gap-1.5 sm:w-auto">
               <DateInput
                 value={dateFrom}
                 max={dateTo || undefined}
                 onChange={(e) => setDateFrom(e.target.value)}
                 aria-label="From date"
+                className="min-w-0 flex-1 sm:flex-none"
               />
-              <span className="text-faint text-xs">–</span>
+              <span className="text-faint shrink-0 text-xs">–</span>
               <DateInput
                 value={dateTo}
                 min={dateFrom || undefined}
                 onChange={(e) => setDateTo(e.target.value)}
                 aria-label="To date"
+                className="min-w-0 flex-1 sm:flex-none"
               />
               {hasDateFilter && (
                 <IconButton
@@ -139,7 +148,7 @@ export default function Overview() {
                     setDateTo('');
                   }}
                 >
-                  <X className="size-3.5" aria-hidden="true" />
+                  <X className="size-4 sm:size-3.5" aria-hidden="true" />
                 </IconButton>
               )}
             </div>

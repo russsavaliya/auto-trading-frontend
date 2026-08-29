@@ -1,28 +1,23 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, ArrowLeftRight, Webhook, Target } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { NAV_ITEMS } from './navItems';
 import { Logo, LogoMark } from './Logo';
 
-const NAV_ITEMS = [
-  { path: '/', label: 'Overview', icon: LayoutDashboard },
-  { path: '/closed-trades', label: 'Closed Trades', icon: ArrowLeftRight },
-  { path: '/webhook-logs', label: 'Webhook Logs', icon: Webhook },
-  { path: '/positions', label: 'Positions', icon: Target },
-];
-
 /**
- * Below 768px the sidebar collapses to an icon rail. The nav LABEL needs its
- * own element so it can be hidden there — as a bare text node it could not be
- * targeted, and every item wrapped onto two lines inside a 64px column and
- * spilled over the content. `title`/`aria-label` keep the name reachable once
- * only the icon is visible.
+ * Desktop navigation only — below 768px this is not rendered at all and
+ * MobileNav takes over.
+ *
+ * It used to collapse to a 64px icon rail on phones. That rail cost ~17% of a
+ * 360px viewport permanently, on every screen, to show four icons with no
+ * labels — while the tables next to it were the thing actually starved of
+ * width. A bottom tab bar gives the same four destinations back at zero
+ * horizontal cost and inside thumb reach, so the rail is gone.
  */
 export function Sidebar() {
   return (
-    <aside className="border-line bg-surface sticky top-0 flex h-dvh w-16 shrink-0 flex-col border-r px-2 py-4 md:w-60 md:px-3">
-      <div className="mb-6 px-1 md:px-2">
-        <Logo collapsed className="justify-center md:hidden" />
-        <Logo className="hidden md:flex" />
+    <aside className="border-line bg-surface sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r px-3 py-4 md:flex">
+      <div className="mb-6 px-2">
+        <Logo />
       </div>
 
       <nav className="flex flex-col gap-0.5" aria-label="Main">
@@ -31,12 +26,9 @@ export function Sidebar() {
             key={path}
             to={path}
             end={path === '/'}
-            title={label}
-            aria-label={label}
             className={({ isActive }) =>
               cn(
                 'group flex items-center gap-3 rounded-lg px-2.5 py-2 text-[0.8125rem] font-medium transition-colors',
-                'justify-center md:justify-start',
                 isActive
                   ? 'bg-ink text-canvas shadow-card'
                   : 'text-muted hover:bg-subtle hover:text-ink'
@@ -44,12 +36,12 @@ export function Sidebar() {
             }
           >
             <Icon className="size-[1.125rem] shrink-0" strokeWidth={1.9} aria-hidden="true" />
-            <span className="hidden md:inline">{label}</span>
+            <span>{label}</span>
           </NavLink>
         ))}
       </nav>
 
-      <div className="mt-auto hidden md:block">
+      <div className="mt-auto">
         <div className="border-line bg-subtle/60 rounded-xl border p-3">
           <div className="flex items-center gap-2">
             <LogoMark className="size-5" />

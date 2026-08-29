@@ -18,7 +18,8 @@ import {
   formatTradeCount,
   niceBounds,
 } from '@/utils/format';
-import { chartColors, axisTheme } from '@/lib/chartTheme';
+import { chartColors, axisTheme, chartGeometry } from '@/lib/chartTheme';
+import { useIsMobile } from '@/hooks/useMediaQuery';
 import { EmptyState } from '@/components/ui/Feedback';
 import { TooltipCard } from './ChartTooltip';
 
@@ -59,7 +60,7 @@ function DayTooltip({ active, payload }) {
  * the baseline and collided with it. Positioning from the sign instead keeps
  * the label outside the bar in both directions.
  */
-function BarValueLabel({ x, y, width, height, value, labelFill }) {
+function BarValueLabel({ x, y, width, height, value, labelFill, fontSize = 11 }) {
   if (value === null || value === undefined) return null;
   const positive = value >= 0;
 
@@ -77,7 +78,7 @@ function BarValueLabel({ x, y, width, height, value, labelFill }) {
       y={positive ? top - 7 : bottom + 15}
       textAnchor="middle"
       fill={labelFill}
-      fontSize={11}
+      fontSize={fontSize}
       fontWeight={600}
     >
       {formatMoneyCompact(value)}
@@ -86,31 +87,35 @@ function BarValueLabel({ x, y, width, height, value, labelFill }) {
 }
 
 export default function DailyPnlChart({ data, emptyMessage = 'No closed trades yet.' }) {
+  const compact = useIsMobile();
+
   if (!data || data.length === 0) {
     return <EmptyState icon={BarChart3}>{emptyMessage}</EmptyState>;
   }
 
   const c = chartColors();
-  const axis = axisTheme(c);
+  const axis = axisTheme(c, compact);
+  const geo = chartGeometry(compact);
   const { domain, ticks } = niceBounds(
     data.map((d) => d.pnl),
     { padRatio: 0.22 }
   );
 
   return (
-    <ResponsiveContainer width="100%" height={264}>
-      <BarChart data={data} margin={{ top: 18, right: 12, left: 4, bottom: 4 }}>
+    <ResponsiveContainer width="100%" height={geo.height}>
+      {/* The extra top margin is the direct label's room — see BarValueLabel. */}
+      <BarChart data={data} margin={{ ...geo.margin, top: 18 }}>
         <CartesianGrid strokeDasharray="3 3" stroke={c.line} vertical={false} />
         <XAxis
           dataKey="date"
           tickFormatter={formatDay}
-          minTickGap={16}
+          minTickGap={compact ? 28 : 16}
           {...axis}
           axisLine={{ stroke: c.line }}
         />
         <YAxis
           tickFormatter={formatMoneyCompact}
-          width={58}
+          width={geo.yAxisWidth}
           domain={domain}
           ticks={ticks}
           {...axis}
@@ -120,12 +125,23 @@ export default function DailyPnlChart({ data, emptyMessage = 'No closed trades y
         {/* Animation off: this dashboard re-fetches every 30s, and replaying a
             1.5s grow-in on each refresh makes the chart unreadable exactly when
             someone is looking at it. */}
-        <Bar dataKey="pnl" radius={[4, 4, 4, 4]} maxBarSize={44} isAnimationActive={false}>
+        <Bar
+          dataKey="pnl"
+          radius={[4, 4, 4, 4]}
+          maxBarSize={compact ? 26 : 44}
+          isAnimationActive={false}
+        >
           {data.map((d) => (
             <Cell key={d.date} fill={d.pnl >= 0 ? c.profit : c.loss} />
           ))}
-          {/* Secondary encoding — see the accessibility note above. */}
-          <LabelList dataKey="pnl" content={<BarValueLabel labelFill={c.muted} />} />
+          {/* Secondary encoding — see the accessibility note above. It shrinks
+              on a phone but is never dropped: the hue alone is not an
+              accessible carrier of the sign, so losing the label would leave
+              only bar direction, and a near-zero day has almost none. */}
+          <LabelList
+            dataKey="pnl"
+            content={<BarValueLabel labelFill={c.muted} fontSize={compact ? 9.5 : 11} />}
+          />
         </Bar>
       </BarChart>
     </ResponsiveContainer>

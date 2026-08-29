@@ -93,6 +93,24 @@
 
   body {
     @apply bg-canvas text-ink font-sans antialiased;
+    /* A phone must never be able to pan the page sideways: every wide thing
+       on this dashboard (tables, charts) scrolls inside its own card, so a
+       horizontal body scroll can only ever be an accident.
+
+       `clip`, not `hidden`. `overflow-x: hidden` forces the other axis to
+       `auto`, which turns <body> into a scroll container — and the topbar's
+       `position: sticky` would then stick to that container instead of the
+       viewport and scroll away. `clip` cuts the overflow without creating
+       one. Pre-16 Safari ignores it and simply behaves as it does today. */
+    overflow-x: clip;
+    /* Stops the grey flash Safari/Chrome paint over a tapped nav item — the
+       components below all render their own :active state. */
+    -webkit-tap-highlight-color: transparent;
+    /* No scroll chaining and no pull-to-refresh. On a live book, a flick that
+       overshoots the top of a trade list must not throw away the page and
+       re-authenticate — the data already refreshes itself every 30s, so the
+       gesture has nothing to offer here and a lot to cost. */
+    overscroll-behavior-y: none;
   }
 
   /* Every figure on this dashboard is read down a column or compared against
@@ -144,5 +162,42 @@
 
   .scroll-x::-webkit-scrollbar-track {
     background: transparent;
+  }
+
+  /* iOS momentum + snap the scroll to a card edge rather than mid-column, so
+     a flick through a wide table always lands somewhere readable. */
+  .scroll-x {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+
+  /* ------------------------------------------------------------------
+     Safe areas.
+     The bottom tab bar sits in the same strip as the iPhone home
+     indicator and Android's gesture pill. Padding it by the inset — not
+     by a guessed constant — is what keeps the last nav row tappable on a
+     notched phone and flush on a flat one.
+     ------------------------------------------------------------------ */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .mb-safe {
+    margin-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Scroll clearance under the fixed bottom bar: its height plus the inset. */
+  .pb-nav {
+    padding-bottom: calc(4.25rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* A row of controls that must stay on one line on a narrow screen and be
+     swiped instead of wrapped — used by the mobile filter bar. */
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
   }
 }

@@ -41,13 +41,18 @@ export function Button({
   );
 }
 
-/** A square button that holds only an icon — needs its own label for a11y. */
+/**
+ * A square button that holds only an icon — needs its own label for a11y.
+ *
+ * 36px on touch, 28px from `sm`. The small size reads correctly next to
+ * compact controls with a mouse; with a thumb it is a miss waiting to happen.
+ */
 export function IconButton({ label, className, children, ...props }) {
   return (
     <Button
       aria-label={label}
       title={label}
-      className={cn('h-7 w-7 shrink-0 rounded-full px-0', className)}
+      className={cn('size-9 shrink-0 rounded-full px-0 sm:size-7', className)}
       {...props}
     >
       {children}

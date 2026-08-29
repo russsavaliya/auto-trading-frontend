@@ -20,7 +20,7 @@ export default function Login() {
   }
 
   return (
-    <div className="bg-canvas relative flex min-h-dvh items-center justify-center overflow-hidden p-4">
+    <div className="bg-canvas relative flex min-h-dvh items-center justify-center overflow-hidden px-4 py-8">
       {/* A single soft wash behind the card. On a near-white canvas this is
           enough to give the page a centre of gravity; a stronger gradient
           starts competing with the card's own hairline. */}
@@ -31,11 +31,13 @@ export default function Login() {
 
       <form
         onSubmit={handleSubmit}
-        className="border-line bg-surface shadow-raised relative w-full max-w-sm rounded-2xl border p-8"
+        className="border-line bg-surface shadow-raised relative w-full max-w-sm rounded-2xl border p-6 sm:p-8"
       >
-        <LogoMark className="size-11" />
+        <LogoMark className="size-10 sm:size-11" />
 
-        <h1 className="text-ink mt-5 text-lg font-semibold tracking-tight">Trading Admin</h1>
+        <h1 className="text-ink mt-4 text-lg font-semibold tracking-tight sm:mt-5">
+          Trading Admin
+        </h1>
         <p className="text-muted mt-1 text-[0.8125rem]">
           Enter the admin password to continue.
         </p>
@@ -79,7 +81,7 @@ export default function Login() {
           <ArrowRight className="size-4" aria-hidden="true" />
         </Button>
 
-        <p className="text-faint mt-6 text-center text-[0.6875rem] leading-relaxed">
+        <p className="text-faint mt-5 text-center text-[0.6875rem] leading-relaxed sm:mt-6">
           Paper trading against the Upstox sandbox. No order placed here is ever executed.
         </p>
       </form>

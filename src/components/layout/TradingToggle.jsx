@@ -59,7 +59,11 @@ export function TradingToggle({ onUnauthorized }) {
             : 'Auto-trading is OFF — click to resume'
       }
       className={cn(
-        'group inline-flex h-9 items-center gap-2 rounded-full border px-3 text-xs font-semibold transition-colors',
+        // h-9 everywhere: this is the one destructive control in the header,
+        // and it has to stay a comfortable thumb target on a phone rather
+        // than shrinking with the type around it.
+        'group inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-[0.6875rem] font-semibold transition-colors',
+        'sm:gap-2 sm:px-3 sm:text-xs',
         'disabled:cursor-not-allowed disabled:opacity-60',
         enabled
           ? 'border-profit-line bg-profit-soft text-profit hover:bg-profit/10'
@@ -71,17 +75,19 @@ export function TradingToggle({ onUnauthorized }) {
       <span
         aria-hidden="true"
         className={cn(
-          'size-2 rounded-full',
-          enabled ? 'bg-profit ring-profit/20 ring-4' : 'bg-loss ring-loss/20 ring-4'
+          'size-1.5 shrink-0 rounded-full sm:size-2',
+          enabled ? 'bg-profit ring-profit/20 ring-[3px] sm:ring-4' : 'bg-loss ring-loss/20 ring-[3px] sm:ring-4'
         )}
       />
       {/* The kill-switch state is the most important status on the page, so
           the word stays visible even on the narrowest layout — the topbar
           title truncates instead. */}
-      <span>{label}</span>
+      <span className="whitespace-nowrap">{label}</span>
+      {/* Hover-revealed affordance, so it is meaningless on touch — where it
+          would only steal ~20px from a header that has none to spare. */}
       {enabled !== null && (
         <Icon
-          className="size-3.5 opacity-0 transition-opacity group-hover:opacity-100"
+          className="hidden size-3.5 opacity-0 transition-opacity group-hover:opacity-100 sm:block"
           aria-hidden="true"
         />
       )}
