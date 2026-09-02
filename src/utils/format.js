@@ -169,3 +169,17 @@ export function niceBounds(values, { padRatio = 0.2, maxTicks = 6 } = {}) {
 export function formatTradeCount(d) {
   return `${d.trades} trade${d.trades === 1 ? '' : 's'} · ${d.wins}W / ${d.losses}L`;
 }
+
+/**
+ * A rate held as a fraction, rendered the way a contract note writes it.
+ *
+ * Trailing zeros are trimmed rather than fixed to a set precision: these rates
+ * span three orders of magnitude (18% GST down to 0.003% stamp duty), and any
+ * single decimal count either rounds the small ones to "0%" or pads the large
+ * ones with noise.
+ */
+export function formatPercent(fraction) {
+  if (fraction === null || fraction === undefined || Number.isNaN(Number(fraction))) return '—';
+  const pct = Number(fraction) * 100;
+  return `${Number(pct.toFixed(5))}%`;
+}

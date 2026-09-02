@@ -7,6 +7,7 @@ import {
   fetchRunningTrades,
   fetchPositions,
   fetchWebhookLogs,
+  fetchConfig,
 } from '@/api';
 import { ErrorBanner, LoadingState } from '@/components/ui/Feedback';
 import { LogoMark } from './Logo';
@@ -17,20 +18,31 @@ import MobileNav from './MobileNav';
 const REFRESH_MS = 30_000;
 
 const PAGE_TITLES = {
-  '/': { title: 'Overview', sub: 'Realised P&L, open positions and daily performance' },
+  '/': { title: 'Overview', sub: 'What the bridge is doing right now' },
+  '/report': {
+    title: 'Report',
+    sub: 'Gross P&L, what it cost, and what is actually left',
+  },
   '/closed-trades': {
     title: 'Closed Trades',
     sub: 'Full history — option premium and index level side by side',
   },
   '/webhook-logs': { title: 'Webhook Logs', sub: 'Every TradingView call and how it was handled' },
-  '/positions': { title: 'Positions', sub: 'Current state machine per symbol' },
+  '/settings': { title: 'Settings', sub: 'Trading controls and the rules that gate every entry' },
 };
 
 /**
- * Shell shared by every route: sidebar, topbar and the polled dashboard data
- * (summary/days/running/positions/webhookLogs) that Overview, Webhook Logs
- * and Positions all read via useOutletContext. Closed Trades ignores this
- * and fetches its own paginated data — see pages/ClosedTrades.jsx.
+ * Shell shared by every route: navigation, topbar and the polled dashboard
+ * data that the pages read via useOutletContext.
+ *
+ * `config` is polled here rather than inside the header control it used to
+ * back. Two screens now depend on it — the read-only status in the topbar and
+ * the actual switches on Settings — and polling it in each would mean two
+ * requests racing to describe the same kill switch, with no guarantee the
+ * header and the page agreed on which way it was set.
+ *
+ * Closed Trades ignores this context and fetches its own paginated data; so
+ * does Report, which is a whole-history aggregate rather than a live view.
  */
 export default function DashboardLayout() {
   const { logout } = useAuth();
@@ -41,6 +53,7 @@ export default function DashboardLayout() {
   const [running, setRunning] = useState(null);
   const [positions, setPositions] = useState(null);
   const [webhookLogs, setWebhookLogs] = useState(null);
+  const [config, setConfig] = useState(null);
 
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -73,18 +86,37 @@ export default function DashboardLayout() {
     }
   }, [logout]);
 
+  /**
+   * Deliberately NOT part of the Promise.all above. /api/config answers 503
+   * when app_config cannot be read, and folding that into the main load would
+   * blank every number on the page over a setting nobody was looking at. A
+   * failed config read degrades to "unknown" — the topbar chip says so — while
+   * the trade data carries on.
+   */
+  const loadConfig = useCallback(async () => {
+    try {
+      setConfig(await fetchConfig());
+    } catch (err) {
+      if (err.status === 401) logout();
+      else setConfig(null);
+    }
+  }, [logout]);
+
+  const refresh = useCallback(async () => {
+    await Promise.all([loadAll(), loadConfig()]);
+  }, [loadAll, loadConfig]);
+
   useEffect(() => {
-    loadAll();
-    const id = setInterval(loadAll, REFRESH_MS);
+    refresh();
+    const id = setInterval(refresh, REFRESH_MS);
     return () => clearInterval(id);
-  }, [loadAll]);
+  }, [refresh]);
 
   // Tapping a bottom-bar tab must land at the top of the new page. Without
   // this the browser keeps the scroll offset across routes, so switching from
   // halfway down a 20-row Closed Trades list to Overview drops you into the
-  // middle of the equity chart with the stat tiles above the fold — on a
-  // phone, where the tab bar makes those switches constant, it reads as the
-  // app having failed to navigate at all.
+  // middle of the page — on a phone, where the tab bar makes those switches
+  // constant, it reads as the app having failed to navigate at all.
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [location.pathname]);
@@ -102,6 +134,7 @@ export default function DashboardLayout() {
           description={sub}
           lastUpdated={lastUpdated}
           offline={Boolean(error)}
+          tradingEnabled={config ? config.trading_enabled : null}
           onLogout={logout}
         />
 
@@ -114,15 +147,17 @@ export default function DashboardLayout() {
           {loading ? (
             <LoadingState>Loading dashboard…</LoadingState>
           ) : (
-            <Outlet context={{ summary, days, running, positions, webhookLogs }} />
+            <Outlet
+              context={{ summary, days, running, positions, webhookLogs, config, refresh }}
+            />
           )}
 
           {/* On desktop this standing caveat lives in the sidebar footer,
               visible on every page. The sidebar is not rendered on a phone, so
-              without this it would appear on Overview (in the Callout) and
-              nowhere else — leaving Closed Trades, Webhook Logs and Positions
-              showing rupee figures with nothing on screen saying they are
-              marks against a sandbox that never fills an order. */}
+              without this it would appear on Overview and nowhere else —
+              leaving the other screens showing rupee figures with nothing on
+              screen saying they are marks against a sandbox that never fills
+              an order. */}
           <p className="text-faint mt-6 flex items-start gap-2 text-[0.6875rem] leading-relaxed md:hidden">
             <LogoMark className="size-4 shrink-0" />
             <span>

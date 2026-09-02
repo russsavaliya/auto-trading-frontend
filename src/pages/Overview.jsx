@@ -1,74 +1,67 @@
-import { useMemo, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
-import { Activity, CalendarDays, LineChart, Percent, Wallet, X } from 'lucide-react';
+import { useOutletContext, Link } from 'react-router-dom';
+import { Activity, ArrowRight, CalendarDays, Target } from 'lucide-react';
 import { StatTile } from '@/components/ui/StatTile';
 import { Card, CardHeader, CardBody } from '@/components/ui/Card';
 import { Callout } from '@/components/ui/Feedback';
-import { DateInput } from '@/components/ui/Input';
-import { IconButton } from '@/components/ui/Button';
-import EquityCurveChart from '@/components/charts/EquityCurveChart';
-import DailyPnlChart from '@/components/charts/DailyPnlChart';
 import RunningTradesTable from '@/components/tables/RunningTradesTable';
+import PositionsTable from '@/components/tables/PositionsTable';
 import { formatMoney, tone } from '@/utils/format';
 
+/**
+ * "What is happening right now" — and deliberately nothing else.
+ *
+ * This page used to carry the equity curve, the per-day bar chart, the
+ * all-time realised total and a date-range filter. All of that is history, not
+ * live state: it answers "how am I doing" on a screen someone opens to answer
+ * "what is open". It now lives on Report, where the same numbers can be shown
+ * net of costs instead of gross.
+ *
+ * What stays is only what changes during a session: today's result, what is
+ * open, and whether any symbol is jammed off FLAT.
+ */
 export default function Overview() {
-  const { summary, days, running } = useOutletContext();
-
-  // Date keys from /api/pnl/daily are 'YYYY-MM-DD', same shape as a native
-  // date input's value, so a plain string comparison is a valid range filter.
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
-  const hasDateFilter = Boolean(dateFrom || dateTo);
-
-  const filteredDays = useMemo(() => {
-    if (!days || !hasDateFilter) return days;
-    return days.filter((d) => (!dateFrom || d.date >= dateFrom) && (!dateTo || d.date <= dateTo));
-  }, [days, dateFrom, dateTo, hasDateFilter]);
+  const { summary, running, positions } = useOutletContext();
 
   // Marked-to-market exposure across everything currently open. Shown beside
-  // realised P&L so the headline number is never mistaken for the whole story.
+  // today's result so a flat-looking day with a large open position is never
+  // mistaken for a quiet one.
   const openPnl = (running || []).reduce(
     (sum, t) => (t.unrealized_pnl == null ? sum : sum + Number(t.unrealized_pnl)),
     0
   );
   const hasOpen = (running || []).length > 0;
+  const stuck = (positions || []).filter((p) => p.state !== 'FLAT').length;
+
+  // Older backends do not send the net fields; fall back to gross rather than
+  // rendering a blank tile, and say which one is on screen either way.
+  const todayNet = summary?.todayNetPnl ?? summary?.todayPnl;
+  const hasNet = summary?.todayNetPnl !== undefined && summary?.todayNetPnl !== null;
 
   return (
     <>
-      {/* Sandbox mode is not a detail — no order this bridge places
-          is ever executed, so every figure below is a mark against
-          real option prices, not a broker fill. Saying so once, at
-          the top, is cheaper than every number being ambiguous. */}
       <Callout>
         <strong className="text-ink font-semibold">Paper trading.</strong> Upstox&rsquo;s sandbox
         accepts orders but never fills them, so P&amp;L is marked against real traded option
         premiums with slippage charged on both legs — not broker fills.
       </Callout>
 
-      {/* Two-up from the smallest screen, with the hero across the full row.
-          One-per-row cost a whole phone viewport to show four numbers and
-          buried the open-positions table under it. */}
-      <div className="mb-5 grid grid-cols-2 gap-3 sm:gap-4 sm:mb-6 xl:grid-cols-4">
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:mb-6 sm:gap-4 lg:grid-cols-3">
         <StatTile
           hero
-          className="col-span-2 xl:col-span-1"
-          icon={Wallet}
-          label="Realised P&L"
-          value={summary ? formatMoney(summary.totalPnl) : '—'}
-          tone={summary ? tone(summary.totalPnl) : undefined}
-          sub={`${summary?.pricedTrades ?? 0} closed trades`}
-          hint={
-            summary?.unpricedTrades
-              ? `${summary.unpricedTrades} trade(s) excluded — premium unavailable`
-              : null
-          }
-        />
-        <StatTile
+          className="col-span-2 lg:col-span-1"
           icon={CalendarDays}
-          label="Today"
-          value={summary ? formatMoney(summary.todayPnl) : '—'}
-          tone={summary ? tone(summary.todayPnl) : undefined}
-          sub="Closed today (IST)"
+          label={hasNet ? 'Today · net' : 'Today · gross'}
+          value={summary ? formatMoney(todayNet) : '—'}
+          tone={summary ? tone(todayNet) : undefined}
+          sub={
+            summary
+              ? `${summary.todayTrades ?? 0} closed today` +
+                (hasNet && summary.todayCharges
+                  ? ` · ${formatMoney(summary.todayCharges, { showSign: false })} costs`
+                  : '')
+              : 'Closed today (IST)'
+          }
+          hint={hasNet ? null : 'Costs not counted — see Report'}
         />
         <StatTile
           icon={Activity}
@@ -78,15 +71,11 @@ export default function Overview() {
           tone={hasOpen ? tone(openPnl) : undefined}
         />
         <StatTile
-          icon={Percent}
-          label="Win rate"
-          value={summary ? `${summary.winRate}%` : '—'}
-          sub={`${summary?.wins ?? 0}W / ${summary?.losses ?? 0}L`}
-          hint={
-            summary?.forceClosedTrades
-              ? `${summary.forceClosedTrades} closed by the clock, not the strategy`
-              : null
-          }
+          icon={Target}
+          label="Symbols held"
+          value={stuck}
+          sub={stuck ? 'Off FLAT — blocking new signals' : 'All flat'}
+          tone={stuck ? 'flat' : undefined}
         />
       </div>
 
@@ -102,65 +91,28 @@ export default function Overview() {
 
       <Card className="mb-5 sm:mb-6">
         <CardHeader
-          title="Equity curve"
-          description="Cumulative realised P&L, by trading day"
-          actions={
-            <span className="text-faint hidden items-center gap-1.5 text-xs sm:inline-flex">
-              <LineChart className="size-3.5" aria-hidden="true" />
-              Cumulative
-            </span>
-          }
+          title="Symbol state"
+          description="A symbol stuck off FLAT blocks every new signal for it"
         />
         <CardBody>
-          <EquityCurveChart data={days} />
+          <PositionsTable positions={positions} />
         </CardBody>
       </Card>
 
-      <Card>
-        <CardHeader
-          title="P&L per day"
-          description="Above the line is profit; every bar is labelled"
-          actions={
-            // The two inputs share the row's width on a phone (flex-1) and
-            // fall back to their natural size once the header is wide enough
-            // to sit them beside the title.
-            <div className="flex w-full items-center gap-1.5 sm:w-auto">
-              <DateInput
-                value={dateFrom}
-                max={dateTo || undefined}
-                onChange={(e) => setDateFrom(e.target.value)}
-                aria-label="From date"
-                className="min-w-0 flex-1 sm:flex-none"
-              />
-              <span className="text-faint shrink-0 text-xs">–</span>
-              <DateInput
-                value={dateTo}
-                min={dateFrom || undefined}
-                onChange={(e) => setDateTo(e.target.value)}
-                aria-label="To date"
-                className="min-w-0 flex-1 sm:flex-none"
-              />
-              {hasDateFilter && (
-                <IconButton
-                  label="Clear date filter"
-                  onClick={() => {
-                    setDateFrom('');
-                    setDateTo('');
-                  }}
-                >
-                  <X className="size-4 sm:size-3.5" aria-hidden="true" />
-                </IconButton>
-              )}
-            </div>
-          }
-        />
-        <CardBody>
-          <DailyPnlChart
-            data={filteredDays}
-            emptyMessage={hasDateFilter ? 'No closed trades in this date range.' : undefined}
-          />
-        </CardBody>
-      </Card>
+      {/* The one pointer off this page. Everything historical moved to Report,
+          and a reader who wants the totals should not have to hunt the nav. */}
+      <Link
+        to="/report"
+        className="border-line bg-surface shadow-card hover:border-line-strong hover:bg-subtle/50 flex items-center justify-between gap-3 rounded-card border px-4 py-3.5 transition-colors sm:px-5"
+      >
+        <div className="min-w-0">
+          <div className="text-ink text-[0.8125rem] font-semibold">Full report</div>
+          <p className="text-muted mt-0.5 text-xs">
+            All-time gross, what it cost, and what is actually left
+          </p>
+        </div>
+        <ArrowRight className="text-muted size-4 shrink-0" aria-hidden="true" />
+      </Link>
     </>
   );
 }

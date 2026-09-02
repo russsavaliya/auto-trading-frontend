@@ -5,11 +5,11 @@ import { NAV_ITEMS } from './navItems';
 /**
  * The phone's primary navigation: a fixed bottom tab bar, below `md` only.
  *
- * Bottom rather than a hamburger drawer because all four destinations are
+ * Bottom rather than a hamburger drawer because all five destinations are
  * peers that an operator switches between constantly while watching a live
  * book — a drawer would put two taps and an animation in front of every one
- * of those switches. Four items is also exactly where a tab bar stops being
- * cramped, so there is no overflow case to design for.
+ * of those switches. Five is the most this bar can hold at 360px and still
+ * give each tab a real touch target, which is why navItems.js caps it there.
  *
  * The bar is translucent with a blur for the same reason the topbar is: the
  * page keeps scrolling underneath, and a solid slab would read as the page
@@ -21,7 +21,7 @@ export function MobileNav() {
       aria-label="Main"
       className="border-line bg-surface/92 pb-safe fixed inset-x-0 bottom-0 z-30 border-t backdrop-blur-lg md:hidden"
     >
-      <ul className="grid grid-cols-4">
+      <ul className="grid grid-cols-5">
         {NAV_ITEMS.map(({ path, short, label, icon: Icon }) => (
           <li key={path}>
             <NavLink
@@ -48,7 +48,7 @@ export function MobileNav() {
                   <span
                     aria-hidden="true"
                     className={cn(
-                      'absolute inset-x-4 top-0 h-0.5 rounded-full transition-opacity',
+                      'absolute inset-x-3 top-0 h-0.5 rounded-full transition-opacity',
                       isActive ? 'bg-ink opacity-100' : 'opacity-0'
                     )}
                   />

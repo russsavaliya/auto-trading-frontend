@@ -1,7 +1,7 @@
+import { Link } from 'react-router-dom';
 import { LogOut, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/cn';
-import { TradingToggle } from './TradingToggle';
 
 /**
  * `offline` is driven by whether the last poll threw, not by navigator.onLine —
@@ -15,14 +15,14 @@ import { TradingToggle } from './TradingToggle';
  * `sm` the description returns and the timestamp moves to its own slot on the
  * right, where there is finally room for both.
  */
-export function Topbar({ title, description, lastUpdated, offline, onLogout }) {
+export function Topbar({ title, description, lastUpdated, offline, tradingEnabled, onLogout }) {
   const stamp =
     lastUpdated &&
     lastUpdated.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false });
 
   return (
     <header className="border-line bg-canvas/85 sticky top-0 z-20 border-b backdrop-blur-md">
-      <div className="mx-auto flex max-w-[80rem] items-center justify-between gap-2 px-4 py-2.5 sm:gap-4 sm:py-3 sm:px-6">
+      <div className="mx-auto flex max-w-[80rem] items-center justify-between gap-2 px-4 py-2.5 sm:gap-4 sm:px-6 sm:py-3">
         <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3">
           <span
             title={offline ? 'Last refresh failed' : 'Live'}
@@ -52,7 +52,7 @@ export function Topbar({ title, description, lastUpdated, offline, onLogout }) {
               {stamp} IST
             </span>
           )}
-          <TradingToggle onUnauthorized={onLogout} />
+          <TradingStatus enabled={tradingEnabled} />
           <Button
             size="md"
             onClick={onLogout}
@@ -65,6 +65,58 @@ export function Topbar({ title, description, lastUpdated, offline, onLogout }) {
         </div>
       </div>
     </header>
+  );
+}
+
+/**
+ * Read-only. The switch itself now lives on Settings — but the STATE stays
+ * here, on every screen, because "the bot silently stopped trading" is the
+ * failure this dashboard exists to make impossible to miss, and a kill switch
+ * you have to navigate to in order to see is one you will eventually forget to
+ * check. Tapping it goes to Settings, where it can actually be changed.
+ *
+ * `null` means the config read failed. That is shown as its own state rather
+ * than defaulting to OFF, because guessing wrong in either direction is worse
+ * than saying so: a false "OFF" starts a panic, a false "ON" hides an outage.
+ */
+function TradingStatus({ enabled }) {
+  const unknown = enabled === null || enabled === undefined;
+
+  return (
+    <Link
+      to="/settings"
+      title={
+        unknown
+          ? 'Could not read the trading status — open Settings'
+          : enabled
+            ? 'Auto-trading is ON — open Settings to pause'
+            : 'Auto-trading is OFF — open Settings to resume'
+      }
+      className={cn(
+        'inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-[0.6875rem] font-semibold transition-colors',
+        'sm:gap-2 sm:px-3 sm:text-xs',
+        unknown
+          ? 'border-line bg-subtle text-muted hover:bg-subtle-strong'
+          : enabled
+            ? 'border-profit-line bg-profit-soft text-profit hover:bg-profit/10'
+            : 'border-loss-line bg-loss-soft text-loss hover:bg-loss/10'
+      )}
+    >
+      <span
+        aria-hidden="true"
+        className={cn(
+          'size-1.5 shrink-0 rounded-full sm:size-2',
+          unknown
+            ? 'bg-faint ring-faint/20 ring-[3px] sm:ring-4'
+            : enabled
+              ? 'bg-profit ring-profit/20 ring-[3px] sm:ring-4'
+              : 'bg-loss ring-loss/20 ring-[3px] sm:ring-4'
+        )}
+      />
+      <span className="whitespace-nowrap">
+        {unknown ? 'Trading —' : enabled ? 'Trading ON' : 'Trading OFF'}
+      </span>
+    </Link>
   );
 }
 
