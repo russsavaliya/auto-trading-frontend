@@ -1,5 +1,5 @@
-import { request } from '@/lib/apiClient';
+import { request, query } from '@/lib/apiClient';
 
-export function fetchPositions() {
-  return request('/api/positions');
+export function fetchPositions(mode) {
+  return request(`/api/positions?${query({ mode })}`);
 }

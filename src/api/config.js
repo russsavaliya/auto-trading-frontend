@@ -1,12 +1,12 @@
-import { request } from '@/lib/apiClient';
+import { request, query } from '@/lib/apiClient';
 
 /**
- * The whole Settings payload in one call — kill switch, daily cap, cooldown,
- * and the charge rate card. One endpoint rather than one per setting so the
- * page can never render a half-applied state.
+ * Settings for ONE environment, plus the live connection status — which is
+ * returned whichever mode is asked for, because the Settings page shows one
+ * Upstox panel regardless of which environment is being viewed.
  */
-export function fetchConfig() {
-  return request('/api/config');
+export function fetchConfig(mode) {
+  return request(`/api/config?${query({ mode })}`);
 }
 
 /**
@@ -14,11 +14,11 @@ export function fetchConfig() {
  * read back from the database — so callers should render the RESPONSE, never
  * the value they just sent.
  */
-export function updateConfig(patch) {
-  return request('/api/config', { method: 'PATCH', body: patch });
+export function updateConfig(patch, mode) {
+  return request(`/api/config?${query({ mode })}`, { method: 'PATCH', body: patch });
 }
 
-/** Kept as its own name because the kill switch is used on its own. */
-export function updateTradingEnabled(enabled) {
-  return updateConfig({ trading_enabled: enabled });
+/** Starts the daily Upstox reconnect. Returns the URL to open. */
+export function beginUpstoxLogin() {
+  return request('/api/upstox/login', { method: 'POST' });
 }

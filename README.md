@@ -1,29 +1,32 @@
 # Trading Admin — dashboard
 
-React + Vite admin panel for the TradingView → Upstox paper-trading bridge.
-Reads the bridge's `/api/*` routes: realised P&L, open positions marked to the
-current option premium, closed-trade history, the per-symbol state machine, and
-the inbound webhook audit trail. Also carries the trading kill switch.
+React + Vite admin panel for the TradingView → Upstox bridge, in both its paper
+and live environments. Reads the bridge's `/api/*` routes: realised P&L, open
+positions marked to the current option premium, closed-trade history, the
+per-symbol state machine, and the inbound webhook audit trail. Also carries the
+per-environment kill switch and the daily Upstox connection.
 
 The backend lives in its own repository — this app only talks to it over HTTP.
 
 ## Running it
 
 ```bash
-cp .env.example .env      # fill in both values
+cp .env.example .env
 npm install
 npm run dev               # http://localhost:5173
 ```
 
 | Variable | What it is |
 |---|---|
-| `VITE_API_BASE_URL` | Where the bridge is listening, e.g. `http://localhost:3000` |
-| `VITE_ADMIN_PASSWORD` | Must match the backend's `ADMIN_PASSWORD` |
+| `VITE_API_BASE_URL` | Where the bridge is listening. Production: `https://139-59-52-230.sslip.io` |
 
-Login compares the password locally and then sends it as an `x-admin-password`
-header on every request; the backend checks it independently against its own
-env var before returning any data. Nothing is stored beyond `sessionStorage`,
-so closing the tab logs you out.
+On Vercel, `VITE_API_BASE_URL` must be a **Config** variable, not a Secret — every
+`VITE_*` value is compiled into the public bundle, so Vercel refuses to store
+one as a secret. The admin password is deliberately NOT a frontend variable for
+the same reason: login posts it to the backend's `/api/login`, which checks it
+against its own `ADMIN_PASSWORD`, and only then is it sent as an
+`x-admin-password` header on every request. Nothing is stored beyond
+`sessionStorage`, so closing the tab logs you out.
 
 ```bash
 npm run build             # production bundle into dist/
@@ -51,7 +54,7 @@ src/components/ui/                 Presentational primitives, no data access
   StatTile.jsx  Pagination.jsx  Feedback.jsx
 src/components/layout/             Shell: DashboardLayout, Sidebar, Topbar,
                                    TradingToggle, Logo
-src/components/charts/             EquityCurveChart, DailyPnlChart, ChartTooltip
+src/components/charts/             ChartTooltip (shared by the Report charts)
 src/components/tables/             RunningTrades, RecentTrades, Positions,
                                    WebhookLogs
 

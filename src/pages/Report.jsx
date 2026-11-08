@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import {
   ResponsiveContainer,
   AreaChart,
@@ -69,13 +70,15 @@ const COMPONENT_LABELS = {
 
 export default function Report() {
   const { logout } = useAuth();
+  const { mode, isLive } = useOutletContext();
   const compact = useIsMobile();
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
     let cancelled = false;
-    fetchPnlReport()
+    setData(null);
+    fetchPnlReport(mode)
       .then((res) => {
         if (!cancelled) {
           setData(res);
@@ -93,7 +96,7 @@ export default function Report() {
     return () => {
       cancelled = true;
     };
-  }, [logout]);
+  }, [logout, mode]);
 
   if (error) return <ErrorBanner>{error}</ErrorBanner>;
   if (!data) return <LoadingState>Building report…</LoadingState>;
@@ -106,7 +109,9 @@ export default function Report() {
       <Card>
         <CardBody>
           <EmptyState icon={Receipt}>
-            No closed trades yet — there is nothing to account for.
+            {isLive
+              ? 'No live trades yet — this environment has not placed an order.'
+              : 'No closed trades yet — there is nothing to account for.'}
           </EmptyState>
         </CardBody>
       </Card>

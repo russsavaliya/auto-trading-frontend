@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
+import { cn } from '@/lib/cn';
 import { useAuth } from '@/context/AuthContext';
 import {
   fetchPnlSummary,
@@ -10,6 +11,7 @@ import {
   fetchConfig,
 } from '@/api';
 import { ErrorBanner, LoadingState } from '@/components/ui/Feedback';
+import { useTradingMode } from '@/hooks/useTradingMode';
 import { LogoMark } from './Logo';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
@@ -47,6 +49,7 @@ const PAGE_TITLES = {
 export default function DashboardLayout() {
   const { logout } = useAuth();
   const location = useLocation();
+  const { mode, setMode, isLive } = useTradingMode();
 
   const [summary, setSummary] = useState(null);
   const [days, setDays] = useState(null);
@@ -62,11 +65,11 @@ export default function DashboardLayout() {
   const loadAll = useCallback(async () => {
     try {
       const [summaryRes, dailyRes, runningRes, positionsRes, webhookLogsRes] = await Promise.all([
-        fetchPnlSummary(),
-        fetchPnlDaily(),
-        fetchRunningTrades(),
-        fetchPositions(),
-        fetchWebhookLogs({ limit: 30 }),
+        fetchPnlSummary(mode),
+        fetchPnlDaily(mode),
+        fetchRunningTrades(mode),
+        fetchPositions(mode),
+        fetchWebhookLogs({ limit: 30, mode }),
       ]);
       setSummary(summaryRes);
       setDays(dailyRes.days);
@@ -84,7 +87,7 @@ export default function DashboardLayout() {
     } finally {
       setLoading(false);
     }
-  }, [logout]);
+  }, [logout, mode]);
 
   /**
    * Deliberately NOT part of the Promise.all above. /api/config answers 503
@@ -95,16 +98,25 @@ export default function DashboardLayout() {
    */
   const loadConfig = useCallback(async () => {
     try {
-      setConfig(await fetchConfig());
+      setConfig(await fetchConfig(mode));
     } catch (err) {
       if (err.status === 401) logout();
       else setConfig(null);
     }
-  }, [logout]);
+  }, [logout, mode]);
 
   const refresh = useCallback(async () => {
     await Promise.all([loadAll(), loadConfig()]);
   }, [loadAll, loadConfig]);
+
+  useEffect(() => {
+    setLoading(true);
+    setSummary(null);
+    setDays(null);
+    setRunning(null);
+    setPositions(null);
+    setWebhookLogs(null);
+  }, [mode]);
 
   useEffect(() => {
     refresh();
@@ -124,7 +136,17 @@ export default function DashboardLayout() {
   const { title, sub } = PAGE_TITLES[location.pathname] || PAGE_TITLES['/'];
 
   return (
-    <div className="flex min-h-dvh">
+    <div className={cn('flex min-h-dvh', isLive && 'bg-loss-soft/40')}>
+      {/* A standing band down the side of every live screen. The mode chip in
+          the header says which environment this is; this is what makes it
+          unmissable when you are not looking at the header. */}
+      {isLive && (
+        <div
+          aria-hidden="true"
+          className="bg-loss pointer-events-none fixed inset-y-0 left-0 z-40 w-1"
+        />
+      )}
+
       {/* md and up */}
       <Sidebar />
 
@@ -135,6 +157,9 @@ export default function DashboardLayout() {
           lastUpdated={lastUpdated}
           offline={Boolean(error)}
           tradingEnabled={config ? config.trading_enabled : null}
+          mode={mode}
+          onModeChange={setMode}
+          liveAvailable={Boolean(config?.live?.enabled)}
           onLogout={logout}
         />
 
@@ -148,7 +173,7 @@ export default function DashboardLayout() {
             <LoadingState>Loading dashboard…</LoadingState>
           ) : (
             <Outlet
-              context={{ summary, days, running, positions, webhookLogs, config, refresh }}
+              context={{ summary, days, running, positions, webhookLogs, config, refresh, mode, isLive }}
             />
           )}
 
@@ -160,10 +185,17 @@ export default function DashboardLayout() {
               an order. */}
           <p className="text-faint mt-6 flex items-start gap-2 text-[0.6875rem] leading-relaxed md:hidden">
             <LogoMark className="size-4 shrink-0" />
-            <span>
-              <span className="text-muted font-semibold">Sandbox.</span> Orders are validated by
-              Upstox but never filled. Every figure is a mark.
-            </span>
+            {isLive ? (
+              <span>
+                <span className="text-loss font-semibold">Live.</span> These are real orders against
+                a real account. Every figure here is money.
+              </span>
+            ) : (
+              <span>
+                <span className="text-muted font-semibold">Sandbox.</span> Orders are validated by
+                Upstox but never filled. Every figure is a mark.
+              </span>
+            )}
           </p>
         </main>
       </div>

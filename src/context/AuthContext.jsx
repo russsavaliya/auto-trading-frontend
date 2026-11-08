@@ -7,8 +7,8 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [authed, setAuthed] = useState(() => Boolean(getStoredPassword()));
 
-  const login = useCallback((password) => {
-    apiLogin(password);
+  const login = useCallback(async (password) => {
+    await apiLogin(password);
     setAuthed(true);
   }, []);
 

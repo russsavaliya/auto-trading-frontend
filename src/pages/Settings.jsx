@@ -1,13 +1,22 @@
 import { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { AlertTriangle, Check, Loader2, Power, ShieldAlert } from 'lucide-react';
-import { updateConfig } from '@/api';
+import {
+  AlertTriangle,
+  Check,
+  ExternalLink,
+  KeyRound,
+  Loader2,
+  Power,
+  ShieldAlert,
+} from 'lucide-react';
+import { updateConfig, beginUpstoxLogin } from '@/api';
 import { useAuth } from '@/context/AuthContext';
 import { Card, CardHeader, CardBody } from '@/components/ui/Card';
 import { Callout, ErrorBanner } from '@/components/ui/Feedback';
 import { Button } from '@/components/ui/Button';
 import { Switch, NumberField } from '@/components/ui/Switch';
 import { formatPercent, formatMoney } from '@/utils/format';
+import { cn } from '@/lib/cn';
 
 /**
  * Two different save behaviours on one page, on purpose.
@@ -21,8 +30,155 @@ import { formatPercent, formatMoney } from '@/utils/format';
  * was typed would fire a write on the way from 2 to 20 — briefly setting the
  * cap to the one value nobody wants.
  */
+/**
+ * The daily reconnect, and the countdown to the next one.
+ *
+ * Upstox retires the live access token at 03:30 IST every morning and issues
+ * no refresh token for the standard grant, so this cannot be automated without
+ * storing broker credentials — which this project will not do. What it CAN do
+ * is make the reconnect one click and the expiry impossible to miss: on
+ * 2 Sep 2026 a token died at 03:30, the first signal arrived at 09:25, and six
+ * hours of orders failed with nothing anywhere saying why.
+ */
+function UpstoxConnection({ live }) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  if (!live) return null;
+
+  const token = live.token || {};
+  const notConfigured = token.state === 'not_configured';
+  const valid = token.state === 'valid';
+  const hours = token.hoursLeft;
+  // Under three hours there is a real chance of the token dying before or
+  // during the session, so it stops being informational and becomes a warning.
+  const expiringSoon = valid && hours != null && hours < 3;
+
+  async function connect() {
+    setBusy(true);
+    setErr('');
+    try {
+      const res = await beginUpstoxLogin();
+      // A new tab rather than a redirect: losing the dashboard mid-login is
+      // how you end up unsure whether the reconnect actually completed.
+      window.open(res.login_url, '_blank', 'noopener');
+    } catch (e) {
+      setErr(e.message || 'Could not start the Upstox login');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const TONE = {
+    valid: expiringSoon
+      ? 'border-warn-line bg-warn-soft text-warn'
+      : 'border-profit-line bg-profit-soft text-profit',
+    expired: 'border-loss-line bg-loss-soft text-loss',
+    no_token: 'border-warn-line bg-warn-soft text-warn',
+    not_configured: 'border-line bg-subtle text-muted',
+  };
+  const LABEL = {
+    valid: expiringSoon ? 'Expiring soon' : 'Connected',
+    expired: 'Expired',
+    no_token: 'Not connected',
+    not_configured: 'Not configured',
+  };
+
+  return (
+    <Card className="mb-5">
+      <CardHeader
+        title="Upstox connection"
+        description="Live only — the token Upstox retires at 03:30 IST every day"
+        actions={
+          <span
+            className={cn(
+              'rounded-full border px-2.5 py-1 text-[0.6875rem] font-semibold whitespace-nowrap',
+              TONE[token.state] || TONE.not_configured
+            )}
+          >
+            {LABEL[token.state] || token.state}
+          </span>
+        }
+      />
+      <CardBody className="pt-3">
+        {err && <p className="text-loss mb-3 text-xs">{err}</p>}
+
+        {notConfigured ? (
+          <>
+            <p className="text-ink-soft text-[0.8125rem] leading-relaxed">
+              Live trading needs these in the server environment before it can authenticate at all:
+            </p>
+            <ul className="mt-2.5 flex flex-col gap-1.5">
+              {(token.missing || []).map((m) => (
+                <li key={m} className="text-muted flex items-center gap-2 text-xs">
+                  <KeyRound className="text-faint size-3.5 shrink-0" aria-hidden="true" />
+                  <code className="bg-subtle text-ink-soft rounded px-1.5 py-0.5">{m}</code>
+                </li>
+              ))}
+            </ul>
+            <p className="text-muted mt-3 text-xs leading-relaxed">
+              Create an app in the Upstox developer console, set these, and restart the server.
+            </p>
+          </>
+        ) : (
+          <>
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-2.5">
+              <Rate label="Account" value={token.userId || '—'} />
+              <Rate
+                label="Expires"
+                value={
+                  token.expiresAt
+                    ? new Date(token.expiresAt).toLocaleString('en-IN', {
+                        timeZone: 'Asia/Kolkata',
+                        hour12: false,
+                      })
+                    : '—'
+                }
+              />
+              <Rate label="Time left" value={hours == null ? '—' : `${hours}h`} />
+              <Rate label="Master switch" value={live.enabled ? 'On' : 'Off'} />
+            </dl>
+
+            {token.lastError && (
+              <p className="border-loss-line bg-loss-soft text-loss mt-3 rounded-lg border px-3 py-2 text-xs">
+                Last failure: {token.lastError}
+              </p>
+            )}
+
+            {!live.enabled && (
+              <p className="border-line bg-subtle text-muted mt-3 rounded-lg border px-3 py-2 text-xs leading-relaxed">
+                <code className="text-ink-soft">LIVE_TRADING_ENABLED</code> is off in the
+                environment, so nothing goes live even with a valid token.
+              </p>
+            )}
+          </>
+        )}
+
+        <Button
+          variant="primary"
+          size="md"
+          className="mt-4 w-full sm:w-auto"
+          onClick={connect}
+          disabled={busy || notConfigured}
+        >
+          {busy ? (
+            <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />
+          ) : (
+            <ExternalLink className="size-3.5" aria-hidden="true" />
+          )}
+          {valid ? 'Reconnect Upstox' : 'Connect Upstox'}
+        </Button>
+        <p className="text-faint mt-2 text-[0.6875rem] leading-relaxed">
+          Opens Upstox in a new tab. Repeat every trading day — the token cannot outlive 03:30 IST
+          no matter when it was issued.
+        </p>
+      </CardBody>
+    </Card>
+  );
+}
+
 export default function Settings() {
-  const { config, refresh } = useOutletContext();
+  const { config, refresh, mode, isLive } = useOutletContext();
   const { logout } = useAuth();
 
   const [draft, setDraft] = useState(null);
@@ -34,6 +190,11 @@ export default function Settings() {
   // Re-seed the form whenever the server's view changes, but never while the
   // user is mid-edit — the 30s poll would otherwise reach in and overwrite a
   // half-typed value.
+  // Environment switch re-seeds the form: paper's daily cap is not live's.
+  useEffect(() => {
+    setDraft(null);
+  }, [mode]);
+
   useEffect(() => {
     if (!config) return;
     setDraft((prev) =>
@@ -70,7 +231,7 @@ export default function Settings() {
     setBusy(true);
     setError('');
     try {
-      await updateConfig(body);
+      await updateConfig(body, mode);
       await refresh();
       setSaved(true);
       setTimeout(() => setSaved(false), 2200);
@@ -102,6 +263,36 @@ export default function Settings() {
   return (
     <div className="mx-auto max-w-2xl">
       {error && <ErrorBanner>{error}</ErrorBanner>}
+
+      {/* Which environment these switches belong to. Without it the page looks
+          identical in both modes, and "I turned trading off" stops saying
+          WHICH book stopped. */}
+      <div
+        className={cn(
+          'mb-5 flex items-center gap-2.5 rounded-xl border px-4 py-3 text-[0.8125rem]',
+          isLive ? 'border-loss-line bg-loss-soft' : 'border-line bg-subtle/60'
+        )}
+      >
+        <span
+          aria-hidden="true"
+          className={cn('size-2 shrink-0 rounded-full', isLive ? 'bg-loss' : 'bg-muted')}
+        />
+        <span className={isLive ? 'text-loss' : 'text-ink-soft'}>
+          {isLive ? (
+            <>
+              <strong className="font-semibold">Configuring LIVE.</strong> These settings govern
+              real orders with real money.
+            </>
+          ) : (
+            <>
+              <strong className="text-ink font-semibold">Configuring Paper.</strong> Sandbox only —
+              switch environment in the header to configure live.
+            </>
+          )}
+        </span>
+      </div>
+
+      <UpstoxConnection live={config.live} />
 
       {readOnly && (
         <Callout tone="warn">

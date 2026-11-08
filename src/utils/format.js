@@ -84,14 +84,6 @@ export function formatDay(dateKey) {
   return d.toLocaleDateString('en-IN', { timeZone: IST, weekday: 'short', day: '2-digit', month: 'short' });
 }
 
-/** "2026-08" -> "Aug 26". */
-export function formatMonth(monthKey) {
-  const [y, m] = monthKey.split('-');
-  const d = new Date(Number(y), Number(m) - 1, 1);
-  if (Number.isNaN(d.getTime())) return monthKey;
-  return d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
-}
-
 /** How long a position was held, e.g. "35m" / "2h 10m". */
 export function formatDuration(fromIso, toIso) {
   if (!fromIso || !toIso) return '—';
@@ -163,11 +155,6 @@ export function niceBounds(values, { padRatio = 0.2, maxTicks = 6 } = {}) {
   }
 
   return { domain: [lo, hi], ticks };
-}
-
-/** "3 trades · 2W / 1L" — the shared footer line on both chart tooltips. */
-export function formatTradeCount(d) {
-  return `${d.trades} trade${d.trades === 1 ? '' : 's'} · ${d.wins}W / ${d.losses}L`;
 }
 
 /**

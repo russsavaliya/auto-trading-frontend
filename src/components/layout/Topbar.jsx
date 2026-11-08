@@ -15,7 +15,17 @@ import { cn } from '@/lib/cn';
  * `sm` the description returns and the timestamp moves to its own slot on the
  * right, where there is finally room for both.
  */
-export function Topbar({ title, description, lastUpdated, offline, tradingEnabled, onLogout }) {
+export function Topbar({
+  title,
+  description,
+  lastUpdated,
+  offline,
+  tradingEnabled,
+  mode,
+  onModeChange,
+  liveAvailable,
+  onLogout,
+}) {
   const stamp =
     lastUpdated &&
     lastUpdated.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false });
@@ -46,6 +56,7 @@ export function Topbar({ title, description, lastUpdated, offline, tradingEnable
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
+          <ModeSwitch mode={mode} onChange={onModeChange} liveAvailable={liveAvailable} />
           {stamp && (
             <span className="text-muted tnum hidden items-center gap-1.5 text-xs lg:inline-flex">
               <RefreshCw className="size-3" aria-hidden="true" />
@@ -117,6 +128,69 @@ function TradingStatus({ enabled }) {
         {unknown ? 'Trading —' : enabled ? 'Trading ON' : 'Trading OFF'}
       </span>
     </Link>
+  );
+}
+
+/**
+ * Paper / Live.
+ *
+ * A segmented control rather than a toggle, because a toggle has an implied
+ * "off" and neither of these is off — they are two environments that both
+ * exist and both hold positions. The selected half is filled so the current
+ * environment reads from across the room, and live fills in the loss hue: on
+ * this dashboard that colour has meant "real consequence" everywhere else, and
+ * it should not start meaning something softer here.
+ *
+ * Live stays clickable even when it is not configured. Hiding it would answer
+ * "why can I not see my live trades?" with silence; showing an empty live
+ * environment with a Settings prompt answers it properly.
+ */
+function ModeSwitch({ mode, onChange, liveAvailable }) {
+  const isLive = mode === 'live';
+
+  return (
+    <div
+      role="group"
+      aria-label="Trading environment"
+      className="border-line bg-subtle flex shrink-0 items-center rounded-full border p-0.5"
+    >
+      <button
+        type="button"
+        onClick={() => onChange('paper')}
+        aria-pressed={!isLive}
+        title="Paper — Upstox sandbox, nothing is really filled"
+        className={cn(
+          'rounded-full px-2.5 py-1 text-[0.6875rem] font-semibold transition-colors sm:px-3 sm:text-xs',
+          !isLive ? 'bg-surface text-ink shadow-card' : 'text-muted hover:text-ink'
+        )}
+      >
+        Paper
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange('live')}
+        aria-pressed={isLive}
+        title={
+          liveAvailable
+            ? 'Live — real orders, real money'
+            : 'Live is not switched on yet — open Settings'
+        }
+        className={cn(
+          'flex items-center gap-1 rounded-full px-2.5 py-1 text-[0.6875rem] font-semibold transition-colors sm:px-3 sm:text-xs',
+          isLive ? 'bg-loss text-canvas shadow-card' : 'text-muted hover:text-ink'
+        )}
+      >
+        Live
+        {/* A dot only when live is actually wired up, so "configured" and
+            "merely selectable" never look the same. */}
+        {liveAvailable && (
+          <span
+            aria-hidden="true"
+            className={cn('size-1.5 rounded-full', isLive ? 'bg-canvas/70' : 'bg-loss')}
+          />
+        )}
+      </button>
+    </div>
   );
 }
 

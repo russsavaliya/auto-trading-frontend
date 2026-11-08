@@ -10,10 +10,10 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     try {
-      login(password);
+      await login(password);
     } catch (err) {
       setError(err.message);
     }
@@ -82,7 +82,7 @@ export default function Login() {
         </Button>
 
         <p className="text-faint mt-5 text-center text-[0.6875rem] leading-relaxed sm:mt-6">
-          Paper trading against the Upstox sandbox. No order placed here is ever executed.
+          Paper and live trading through Upstox. Live orders use real money.
         </p>
       </form>
     </div>

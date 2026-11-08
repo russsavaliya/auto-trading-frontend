@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { fetchTrades } from '@/api';
 import { Card, CardHeader, CardBody } from '@/components/ui/Card';
@@ -12,6 +13,7 @@ const CLOSED_TRADES_PAGE_SIZE = 20;
  * since closed-trade history is large and shouldn't be re-fetched on a timer. */
 export default function ClosedTrades() {
   const { logout } = useAuth();
+  const { mode } = useOutletContext();
   const [trades, setTrades] = useState(null);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
@@ -19,7 +21,7 @@ export default function ClosedTrades() {
 
   useEffect(() => {
     let cancelled = false;
-    fetchTrades({ status: 'CLOSED', limit: CLOSED_TRADES_PAGE_SIZE, offset })
+    fetchTrades({ status: 'CLOSED', limit: CLOSED_TRADES_PAGE_SIZE, offset, mode })
       .then((res) => {
         if (cancelled) return;
         setTrades(res.trades);
@@ -37,7 +39,15 @@ export default function ClosedTrades() {
     return () => {
       cancelled = true;
     };
-  }, [offset, logout]);
+  }, [offset, logout, mode]);
+
+  // Environment switch resets pagination: page 3 of paper is not page 3 of
+  // live, and carrying the offset over lands on an empty page that reads as a
+  // failure rather than as "this environment has fewer trades".
+  useEffect(() => {
+    setOffset(0);
+    setTrades(null);
+  }, [mode]);
 
   const page = Math.floor(offset / CLOSED_TRADES_PAGE_SIZE) + 1;
   const totalPages = Math.max(1, Math.ceil(total / CLOSED_TRADES_PAGE_SIZE));
