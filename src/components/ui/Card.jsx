@@ -1,3 +1,4 @@
+import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
 /**
@@ -55,6 +56,42 @@ export function CardHeader({ title, description, actions, className }) {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * A card that starts closed and opens on tap — for reference material that
+ * explains a setting rather than being one. On a phone, two screens of
+ * rationale between the switches and the bottom of the page is what made
+ * Settings read like a document instead of an app.
+ *
+ * Built on <details>, so it opens without JavaScript and is keyboard- and
+ * screen-reader-operable for free.
+ */
+export function CollapsibleCard({ title, description, className, children }) {
+  return (
+    <details
+      className={cn(
+        'group rounded-card border border-line bg-surface shadow-card overflow-hidden',
+        className
+      )}
+    >
+      <summary className="active:bg-subtle hover:bg-subtle/50 flex cursor-pointer list-none items-start justify-between gap-3 px-4 py-3.5 select-none sm:px-5 sm:py-4 [&::-webkit-details-marker]:hidden">
+        <div className="min-w-0">
+          <h2 className="text-ink text-[0.9375rem] leading-tight font-semibold tracking-tight">
+            {title}
+          </h2>
+          {description && (
+            <p className="text-muted mt-1 text-xs leading-relaxed">{description}</p>
+          )}
+        </div>
+        <ChevronDown
+          className="text-muted mt-0.5 size-4 shrink-0 transition-transform group-open:rotate-180"
+          aria-hidden="true"
+        />
+      </summary>
+      <div className="border-line border-t">{children}</div>
+    </details>
   );
 }
 

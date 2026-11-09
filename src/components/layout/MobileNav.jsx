@@ -19,7 +19,7 @@ export function MobileNav() {
   return (
     <nav
       aria-label="Main"
-      className="border-line bg-surface/92 pb-safe fixed inset-x-0 bottom-0 z-30 border-t backdrop-blur-lg md:hidden"
+      className="border-line bg-surface/92 pb-safe fixed inset-x-0 bottom-0 z-30 border-t backdrop-blur-lg select-none md:hidden"
     >
       <ul className="grid grid-cols-5">
         {NAV_ITEMS.map(({ path, short, label, icon: Icon }) => (
@@ -30,36 +30,32 @@ export function MobileNav() {
               aria-label={label}
               className={({ isActive }) =>
                 cn(
-                  // 3.5rem of content + the safe-area pad clears the 44px
+                  // 4rem of content + the safe-area pad clears the 44px
                   // minimum comfortably, and the whole column is the target —
                   // not just the icon.
-                  'relative flex h-14 flex-col items-center justify-center gap-1 transition-colors',
-                  'active:bg-subtle',
+                  'group flex h-16 flex-col items-center justify-center gap-1 transition-colors',
                   isActive ? 'text-ink' : 'text-muted'
                 )
               }
             >
               {({ isActive }) => (
                 <>
-                  {/* The active marker is a bar at the top edge of the tab,
-                      not a filled pill: at this size a fill would swallow the
-                      label, and the bar reads as "this column" from the
-                      corner of the eye. */}
+                  {/* The active tab's icon sits in a filled pill — the
+                      convention every phone's own apps use, so "where am I"
+                      needs no reading at all. The label stays outside the
+                      pill, where a fill would otherwise swallow it. */}
                   <span
                     aria-hidden="true"
                     className={cn(
-                      'absolute inset-x-3 top-0 h-0.5 rounded-full transition-opacity',
-                      isActive ? 'bg-ink opacity-100' : 'opacity-0'
+                      'flex h-7 w-14 items-center justify-center rounded-full transition-colors',
+                      isActive ? 'bg-ink text-canvas' : 'group-active:bg-subtle'
                     )}
-                  />
-                  <Icon
-                    className="size-[1.25rem] shrink-0"
-                    strokeWidth={isActive ? 2.3 : 1.8}
-                    aria-hidden="true"
-                  />
+                  >
+                    <Icon className="size-[1.125rem] shrink-0" strokeWidth={isActive ? 2.2 : 1.8} />
+                  </span>
                   <span
                     className={cn(
-                      'text-[0.625rem] leading-none tracking-tight',
+                      'text-[0.6875rem] leading-none tracking-tight',
                       isActive ? 'font-semibold' : 'font-medium'
                     )}
                   >

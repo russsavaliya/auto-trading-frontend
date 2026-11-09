@@ -83,6 +83,9 @@
        painting form controls and scrollbars from a dark system preference. */
     color-scheme: light;
     -webkit-text-size-adjust: 100%;
+    /* Taps register immediately and a double-tap no longer zooms the page —
+       the way an installed app behaves. Pinch-zoom still works. */
+    touch-action: manipulation;
   }
 
   html,
@@ -180,6 +183,12 @@
      ------------------------------------------------------------------ */
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* The installed app's header, for a phone that draws the status bar over
+     the page. Zero everywhere else, so it costs nothing in a browser tab. */
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
   }
 
   .mb-safe {

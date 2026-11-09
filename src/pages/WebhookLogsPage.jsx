@@ -8,8 +8,8 @@ export default function WebhookLogsPage() {
   return (
     <Card>
       <CardHeader
-        title="Recent webhook calls"
-        description="Latest 30 · refreshes every 30s"
+        title="Recent signals"
+        description="Last 30 alerts from TradingView · refreshes every 30s"
       />
       <CardBody>
         <WebhookLogsTable logs={webhookLogs} />

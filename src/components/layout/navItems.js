@@ -14,10 +14,10 @@ import { LayoutDashboard, Receipt, ArrowLeftRight, Webhook, SlidersHorizontal } 
  * one column without wrapping to two lines.
  */
 export const NAV_ITEMS = [
-  { path: '/', label: 'Overview', short: 'Live', icon: LayoutDashboard },
+  { path: '/', label: 'Home', short: 'Home', icon: LayoutDashboard },
   { path: '/report', label: 'Report', short: 'Report', icon: Receipt },
   { path: '/closed-trades', label: 'Closed Trades', short: 'Trades', icon: ArrowLeftRight },
-  { path: '/webhook-logs', label: 'Webhook Logs', short: 'Logs', icon: Webhook },
+  { path: '/webhook-logs', label: 'Signals', short: 'Signals', icon: Webhook },
   { path: '/settings', label: 'Settings', short: 'Settings', icon: SlidersHorizontal },
 ];
 

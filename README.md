@@ -34,6 +34,32 @@ npm run preview           # serve that bundle locally
 npm run lint              # oxlint
 ```
 
+## Phone app (PWA)
+
+The dashboard installs as a phone app (`vite-plugin-pwa`, configured in
+`vite.config.js`).
+
+- **Install.** Android/Chrome: the **Install** button on Home, or Settings →
+  Phone app. iPhone: Safari → Share → **Add to Home Screen** (other iPhone
+  browsers cannot install).
+- **Updates.** A new deploy is never swapped in under an open app. The app
+  checks hourly and shows "A new version is ready — Update".
+- **What is cached.** Only the app shell (HTML, JS, CSS, icons) and the Inter
+  font. The bridge API is a different origin and is never cached — a stale
+  position or P&L on a trading screen is worse than an error.
+- **Vercel.** Deployment Protection sits in front of the site, so the manifest
+  link carries `crossorigin="use-credentials"` (`useCredentials: true`);
+  without it the phone never offers Install. `vercel.json` serves `sw.js`
+  with `no-cache` so a new version is always picked up.
+- **Icons** in `public/` are generated from `public/favicon.svg`. To redo them,
+  in an empty folder outside the repo:
+  `npm i @vite-pwa/assets-generator@^1`, copy the SVG in as `logo.svg`, add a
+  `pwa-assets.config.mjs` using `minimal2023Preset` with `padding: 0.15` and
+  `resizeOptions: { background: '#0c0a09' }` for the `maskable` and `apple`
+  entries, run `npx pwa-assets-generator`, and copy the PNGs + `favicon.ico`
+  back into `public/`. (Kept out of `devDependencies` so `sharp` is not
+  installed on every Vercel build.)
+
 ## Project structure
 
 ```
@@ -53,14 +79,19 @@ src/components/ui/                 Presentational primitives, no data access
   Card.jsx  Badge.jsx  Button.jsx  Input.jsx  Table.jsx
   StatTile.jsx  Pagination.jsx  Feedback.jsx
 src/components/layout/             Shell: DashboardLayout, Sidebar, Topbar,
-                                   TradingToggle, Logo
+                                   MobileNav (phone tab bar), Logo
+src/components/home/               BotStatusCard — Home's plain-English status
+src/components/pwa/                UpdateBanner, InstallCard, InstallNudge
 src/components/charts/             ChartTooltip (shared by the Report charts)
 src/components/tables/             RunningTrades, RecentTrades, Positions,
-                                   WebhookLogs
+                                   WebhookLogs, ContractLabel
 
+src/hooks/                         useTradingMode, useInstallPrompt, useMediaQuery
 src/pages/                         One file per route
 src/styles/index.css               Tailwind entry + the design tokens
 src/utils/format.js                Every number and time on the dashboard
+src/utils/signals.js               How an alert reads: reason, label, outcome
+src/utils/market.js                IST market hours
 ```
 
 The `@` alias points at `src/`, so nothing imports by counting `../` levels.

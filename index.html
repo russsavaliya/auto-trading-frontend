@@ -2,6 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta
       name="viewport"
@@ -10,8 +11,19 @@
     <meta name="theme-color" content="#fafaf9" />
     <meta
       name="description"
-      content="Admin dashboard for the TradingView to Upstox paper-trading bridge — realised P&amp;L, open positions and webhook audit trail."
+      content="BANKNIFTY options bot — live status, open positions and P&amp;L for paper and live trading."
     />
+
+    <!-- Installed-app behaviour. The web manifest itself is injected by
+         vite-plugin-pwa (see vite.config.js); iOS still reads these tags
+         rather than the manifest for the home-screen title, icon and status
+         bar. "default" keeps the status bar opaque, so nothing on the page
+         ever has to be pushed down to clear it. -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Trading Admin" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
 
     <!-- Inter, preconnected so the first paint is not blocked on a cold DNS
          lookup. `tnum` is enabled in CSS, not here, because it should apply to

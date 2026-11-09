@@ -6,16 +6,18 @@ import {
   ExternalLink,
   KeyRound,
   Loader2,
+  LogOut,
   Power,
   ShieldAlert,
 } from 'lucide-react';
 import { updateConfig, beginUpstoxLogin } from '@/api';
 import { useAuth } from '@/context/AuthContext';
-import { Card, CardHeader, CardBody } from '@/components/ui/Card';
+import { Card, CardHeader, CardBody, CollapsibleCard } from '@/components/ui/Card';
+import InstallCard from '@/components/pwa/InstallCard';
 import { Callout, ErrorBanner } from '@/components/ui/Feedback';
 import { Button } from '@/components/ui/Button';
 import { Switch, NumberField } from '@/components/ui/Switch';
-import { formatPercent, formatMoney } from '@/utils/format';
+import { formatPercent, formatMoney, formatTime } from '@/utils/format';
 import { cn } from '@/lib/cn';
 
 /**
@@ -124,18 +126,11 @@ function UpstoxConnection({ live }) {
           <>
             <dl className="grid grid-cols-2 gap-x-6 gap-y-2.5">
               <Rate label="Account" value={token.userId || '—'} />
+              <Rate label="Expires" value={token.expiresAt ? formatTime(token.expiresAt) : '—'} />
               <Rate
-                label="Expires"
-                value={
-                  token.expiresAt
-                    ? new Date(token.expiresAt).toLocaleString('en-IN', {
-                        timeZone: 'Asia/Kolkata',
-                        hour12: false,
-                      })
-                    : '—'
-                }
+                label="Time left"
+                value={hours == null ? '—' : hours <= 0 ? 'Expired' : `${hours}h`}
               />
-              <Rate label="Time left" value={hours == null ? '—' : `${hours}h`} />
               <Rate label="Master switch" value={live.enabled ? 'On' : 'Off'} />
             </dl>
 
@@ -210,14 +205,19 @@ export default function Settings() {
 
   if (!config || !draft) {
     return (
-      <Card>
-        <CardBody>
-          <div className="text-muted flex items-center justify-center gap-2 py-10 text-[0.8125rem]">
-            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-            Reading settings…
-          </div>
-        </CardBody>
-      </Card>
+      <div className="mx-auto max-w-2xl">
+        <Card>
+          <CardBody>
+            <div className="text-muted flex items-center justify-center gap-2 py-10 text-[0.8125rem]">
+              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+              Reading settings…
+            </div>
+          </CardBody>
+        </Card>
+        {/* Rendered even while the config cannot be read: with the server
+            down this would otherwise be a phone with no way to log out. */}
+        <AppSection onLogout={logout} />
+      </div>
     );
   }
 
@@ -280,13 +280,13 @@ export default function Settings() {
         <span className={isLive ? 'text-loss' : 'text-ink-soft'}>
           {isLive ? (
             <>
-              <strong className="font-semibold">Configuring LIVE.</strong> These settings govern
-              real orders with real money.
+              <strong className="font-semibold">Live settings.</strong> These control real orders
+              with real money.
             </>
           ) : (
             <>
-              <strong className="text-ink font-semibold">Configuring Paper.</strong> Sandbox only —
-              switch environment in the header to configure live.
+              <strong className="text-ink font-semibold">Paper settings.</strong> Practice mode —
+              switch to Live at the top to change live settings.
             </>
           )}
         </span>
@@ -418,8 +418,11 @@ export default function Settings() {
       </Card>
 
       {/* ---- Why the cap exists ------------------------------------------- */}
-      <Card className="mb-5">
-        <CardHeader title="Why the cap is 2" description="Measured, not chosen by feel" />
+      <CollapsibleCard
+        className="mb-5"
+        title="Why the cap is 2"
+        description="Measured, not chosen by feel · tap to read"
+      >
         <CardBody className="pt-3">
           <p className="text-ink-soft text-[0.8125rem] leading-relaxed">
             Per-trade expectancy is negative in two independent samples, so fewer trades is better
@@ -469,15 +472,14 @@ export default function Settings() {
             </span>
           </p>
         </CardBody>
-      </Card>
+      </CollapsibleCard>
 
       {/* ---- Rate card ---------------------------------------------------- */}
       {config.rates && (
-      <Card>
-        <CardHeader
-          title="Charge rates"
-          description="Used by the Report page. Edit in src/services/charges.js"
-        />
+      <CollapsibleCard
+        title="Charge rates"
+        description="Brokerage, taxes and fees used by the Report page · tap to see"
+      >
         <CardBody className="pt-3">
           <dl className="grid grid-cols-1 gap-x-6 gap-y-2.5 sm:grid-cols-2">
             <Rate label="Brokerage" value={`${formatMoney(config.rates.brokeragePerOrder, { showSign: false })} / order`} />
@@ -498,8 +500,27 @@ export default function Settings() {
             </span>
           </p>
         </CardBody>
-      </Card>
+      </CollapsibleCard>
       )}
+
+      <AppSection onLogout={logout} />
+    </div>
+  );
+}
+
+/**
+ * The phone's account area: install-as-app (renders nothing where the browser
+ * cannot install) and Log out, which on a phone lives here rather than in the
+ * header. From `sm` the header carries Log out again, so the button hides.
+ */
+function AppSection({ onLogout }) {
+  return (
+    <div className="mt-5">
+      <InstallCard className="mb-5" />
+      <Button size="lg" onClick={onLogout} className="sm:hidden">
+        <LogOut className="size-4" aria-hidden="true" />
+        Log out
+      </Button>
     </div>
   );
 }

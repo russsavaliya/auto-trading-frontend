@@ -31,7 +31,7 @@ export function Topbar({
     lastUpdated.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false });
 
   return (
-    <header className="border-line bg-canvas/85 sticky top-0 z-20 border-b backdrop-blur-md">
+    <header className="border-line bg-canvas/85 pt-safe sticky top-0 z-20 border-b backdrop-blur-md select-none">
       <div className="mx-auto flex max-w-[80rem] items-center justify-between gap-2 px-4 py-2.5 sm:gap-4 sm:px-6 sm:py-3">
         <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3">
           <span
@@ -42,7 +42,7 @@ export function Topbar({
             )}
           />
           <div className="min-w-0">
-            <h1 className="text-ink truncate text-sm leading-tight font-semibold tracking-tight sm:text-[0.9375rem]">
+            <h1 className="text-ink truncate text-[1.0625rem] leading-tight font-semibold tracking-tight sm:text-[0.9375rem]">
               {title}
             </h1>
             <p className="text-muted mt-0.5 hidden truncate text-xs sm:block">{description}</p>
@@ -64,14 +64,17 @@ export function Topbar({
             </span>
           )}
           <TradingStatus enabled={tradingEnabled} />
+          {/* Phone: Log out lives at the bottom of Settings, where apps keep
+              it — a header slot is too valuable, and too easy to hit by
+              accident, for an action nobody needs mid-session. */}
           <Button
             size="md"
             onClick={onLogout}
             aria-label="Log out"
-            className="size-9 shrink-0 px-0 sm:h-9 sm:w-auto sm:px-3.5"
+            className="hidden h-9 shrink-0 px-3.5 sm:inline-flex"
           >
-            <LogOut className="size-4 sm:size-3.5" aria-hidden="true" />
-            <span className="hidden sm:inline">Log out</span>
+            <LogOut className="size-3.5" aria-hidden="true" />
+            Log out
           </Button>
         </div>
       </div>

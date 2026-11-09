@@ -20,7 +20,7 @@ import MobileNav from './MobileNav';
 const REFRESH_MS = 30_000;
 
 const PAGE_TITLES = {
-  '/': { title: 'Overview', sub: 'What the bridge is doing right now' },
+  '/': { title: 'Home', sub: 'Is the bot working, and what is it doing right now' },
   '/report': {
     title: 'Report',
     sub: 'Gross P&L, what it cost, and what is actually left',
@@ -29,7 +29,7 @@ const PAGE_TITLES = {
     title: 'Closed Trades',
     sub: 'Full history — option premium and index level side by side',
   },
-  '/webhook-logs': { title: 'Webhook Logs', sub: 'Every TradingView call and how it was handled' },
+  '/webhook-logs': { title: 'Signals', sub: 'Every alert from TradingView and what the bot did with it' },
   '/settings': { title: 'Settings', sub: 'Trading controls and the rules that gate every entry' },
 };
 
@@ -173,7 +173,19 @@ export default function DashboardLayout() {
             <LoadingState>Loading dashboard…</LoadingState>
           ) : (
             <Outlet
-              context={{ summary, days, running, positions, webhookLogs, config, refresh, mode, isLive }}
+              context={{
+                summary,
+                days,
+                running,
+                positions,
+                webhookLogs,
+                config,
+                refresh,
+                mode,
+                isLive,
+                offline: Boolean(error),
+                lastUpdated,
+              }}
             />
           )}
 
@@ -187,13 +199,12 @@ export default function DashboardLayout() {
             <LogoMark className="size-4 shrink-0" />
             {isLive ? (
               <span>
-                <span className="text-loss font-semibold">Live.</span> These are real orders against
-                a real account. Every figure here is money.
+                <span className="text-loss font-semibold">Live mode.</span> Real orders, real money.
               </span>
             ) : (
               <span>
-                <span className="text-muted font-semibold">Sandbox.</span> Orders are validated by
-                Upstox but never filled. Every figure is a mark.
+                <span className="text-muted font-semibold">Paper mode.</span> Practice orders — no real
+                money. Profit and loss use real option prices.
               </span>
             )}
           </p>

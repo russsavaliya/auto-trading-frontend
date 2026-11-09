@@ -2,9 +2,11 @@ import { useOutletContext, Link } from 'react-router-dom';
 import { Activity, ArrowRight, CalendarDays, Target } from 'lucide-react';
 import { StatTile } from '@/components/ui/StatTile';
 import { Card, CardHeader, CardBody } from '@/components/ui/Card';
-import { Callout } from '@/components/ui/Feedback';
+import BotStatusCard from '@/components/home/BotStatusCard';
+import InstallNudge from '@/components/pwa/InstallNudge';
 import RunningTradesTable from '@/components/tables/RunningTradesTable';
 import PositionsTable from '@/components/tables/PositionsTable';
+import { cn } from '@/lib/cn';
 import { formatMoney, tone } from '@/utils/format';
 
 /**
@@ -18,9 +20,15 @@ import { formatMoney, tone } from '@/utils/format';
  *
  * What stays is only what changes during a session: today's result, what is
  * open, and whether any symbol is jammed off FLAT.
+ *
+ * On a phone the status card at the top carries today's result, the open
+ * trade and a stuck symbol in plain sentences, so the stat tiles below are
+ * desktop-only there and the symbol table only appears when something is
+ * actually stuck — otherwise it is a table of "FLAT" with nothing to act on.
  */
 export default function Overview() {
-  const { summary, running, positions } = useOutletContext();
+  const { summary, running, positions, webhookLogs, config, isLive, offline, lastUpdated, refresh } =
+    useOutletContext();
 
   // Marked-to-market exposure across everything currently open. Shown beside
   // today's result so a flat-looking day with a large open position is never
@@ -39,13 +47,21 @@ export default function Overview() {
 
   return (
     <>
-      <Callout>
-        <strong className="text-ink font-semibold">Paper trading.</strong> Upstox&rsquo;s sandbox
-        accepts orders but never fills them, so P&amp;L is marked against real traded option
-        premiums with slippage charged on both legs — not broker fills.
-      </Callout>
+      <BotStatusCard
+        config={config}
+        running={running}
+        positions={positions}
+        summary={summary}
+        webhookLogs={webhookLogs}
+        isLive={isLive}
+        offline={offline}
+        lastUpdated={lastUpdated}
+        onRefresh={refresh}
+      />
 
-      <div className="mb-5 grid grid-cols-2 gap-3 sm:mb-6 sm:gap-4 lg:grid-cols-3">
+      <InstallNudge />
+
+      <div className="mb-5 hidden grid-cols-2 gap-3 sm:mb-6 sm:gap-4 md:grid lg:grid-cols-3">
         <StatTile
           hero
           className="col-span-2 lg:col-span-1"
@@ -79,7 +95,10 @@ export default function Overview() {
         />
       </div>
 
-      <Card className="mb-5 sm:mb-6">
+      {/* On a phone an empty "no positions" box only repeats what the status
+          card above already says, so it appears there only while a trade is
+          actually open. */}
+      <Card className={cn('mb-5 sm:mb-6', !hasOpen && 'hidden md:block')}>
         <CardHeader
           title="Open positions"
           description="Marked to the latest traded premium · refreshes every 30s"
@@ -89,7 +108,7 @@ export default function Overview() {
         </CardBody>
       </Card>
 
-      <Card className="mb-5 sm:mb-6">
+      <Card className={cn('mb-5 sm:mb-6', !stuck && 'hidden md:block')}>
         <CardHeader
           title="Symbol state"
           description="A symbol stuck off FLAT blocks every new signal for it"
