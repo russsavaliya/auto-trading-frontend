@@ -27,6 +27,7 @@ import {
   Field,
 } from '@/components/ui/Table';
 import { EmptyState } from '@/components/ui/Feedback';
+import ContractLabel from '@/components/tables/ContractLabel';
 
 /**
  * Open positions, marked to the option's current traded price.
@@ -85,6 +86,7 @@ export default function RunningTradesTable({ trades }) {
           <TR className="hover:bg-transparent">
             <TH>#</TH>
             <TH>Side</TH>
+            <TH>Contract</TH>
             <TH>Opened</TH>
             <TH>Held</TH>
             <TH num>Qty</TH>
@@ -103,6 +105,9 @@ export default function RunningTradesTable({ trades }) {
                 <TD dim>{t.id}</TD>
                 <TD>
                   <SideBadge signalType={t.signal_type} />
+                </TD>
+                <TD>
+                  <ContractLabel trade={t} />
                 </TD>
                 <TD nowrap>{formatTime(t.created_at)}</TD>
                 <TD dim nowrap>
@@ -138,6 +143,9 @@ export default function RunningTradesTable({ trades }) {
                 lead={
                   <>
                     <SideBadge signalType={t.signal_type} />
+                    <span className="text-ink-soft text-xs">
+                      <ContractLabel trade={t} />
+                    </span>
                     <span className="text-muted tnum text-xs">#{t.id}</span>
                   </>
                 }

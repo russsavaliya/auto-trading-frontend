@@ -20,6 +20,7 @@ import {
   Field,
 } from '@/components/ui/Table';
 import { EmptyState } from '@/components/ui/Feedback';
+import ContractLabel from '@/components/tables/ContractLabel';
 
 /**
  * Closed-trade history.
@@ -111,6 +112,7 @@ export default function RecentTradesTable({ trades }) {
           <TR className="hover:bg-transparent">
             <TH>#</TH>
             <TH>Side</TH>
+            <TH>Contract</TH>
             <TH>Entry</TH>
             <TH>Exit</TH>
             <TH>Held</TH>
@@ -131,6 +133,9 @@ export default function RecentTradesTable({ trades }) {
                 <TD dim>{t.id}</TD>
                 <TD>
                   <SideBadge signalType={t.signal_type} />
+                </TD>
+                <TD>
+                  <ContractLabel trade={t} />
                 </TD>
                 <TD nowrap>{formatTime(t.created_at)}</TD>
                 <TD nowrap>{formatTime(t.closed_at)}</TD>
@@ -175,6 +180,9 @@ export default function RecentTradesTable({ trades }) {
                 lead={
                   <>
                     <SideBadge signalType={t.signal_type} />
+                    <span className="text-ink-soft text-xs">
+                      <ContractLabel trade={t} />
+                    </span>
                     <span className="text-muted tnum text-xs">#{t.id}</span>
                   </>
                 }

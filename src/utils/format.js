@@ -53,6 +53,20 @@ export function formatSpot(n) {
   return Number(n).toLocaleString('en-IN', { maximumFractionDigits: 0 });
 }
 
+/** "58900 CE" — the option a trade traded, or null when none was recorded. */
+export function formatContract(trade) {
+  if (!trade || trade.strike_price == null || !trade.option_type) return null;
+  return `${Number(trade.strike_price)} ${trade.option_type}`;
+}
+
+/** "2026-11-23" -> "23 Nov". An expiry is a calendar date; parsed at IST noon so it cannot drift. */
+export function formatExpiry(dateKey) {
+  if (!dateKey) return '';
+  const d = new Date(`${dateKey}T12:00:00+05:30`);
+  if (Number.isNaN(d.getTime())) return dateKey;
+  return d.toLocaleDateString('en-IN', { timeZone: IST, day: '2-digit', month: 'short' });
+}
+
 /** "12 Aug, 14:35" in IST. */
 export function formatTime(iso, { withSeconds = false } = {}) {
   if (!iso) return '—';
