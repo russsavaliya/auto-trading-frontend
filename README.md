@@ -76,11 +76,13 @@ src/lib/chartTheme.js              Reads the CSS palette back for Recharts
 src/context/AuthContext.jsx        authed / login / logout
 
 src/components/ui/                 Presentational primitives, no data access
-  Card.jsx  Badge.jsx  Button.jsx  Input.jsx  Table.jsx
+  Card.jsx  Badge.jsx  Button.jsx  Input.jsx  Table.jsx  Switch.jsx
   StatTile.jsx  Pagination.jsx  Feedback.jsx
+  List.jsx                         Phone list rows (ListGroup, FlushList, ListRow)
+  Sheet.jsx                        Bottom sheet on a phone, centred dialog on desktop
 src/components/layout/             Shell: DashboardLayout, Sidebar, Topbar,
                                    MobileNav (phone tab bar), Logo
-src/components/home/               BotStatusCard — Home's plain-English status
+src/components/trades/             TradeSheet (one trade's full detail), TradeBadges
 src/components/pwa/                UpdateBanner, InstallCard, InstallNudge
 src/components/charts/             ChartTooltip (shared by the Report charts)
 src/components/tables/             RunningTrades, RecentTrades, Positions,
@@ -91,6 +93,7 @@ src/pages/                         One file per route
 src/styles/index.css               Tailwind entry + the design tokens
 src/utils/format.js                Every number and time on the dashboard
 src/utils/signals.js               How an alert reads: reason, label, outcome
+src/utils/trades.js                How a trade reads: side, close reason, price source
 src/utils/market.js                IST market hours
 ```
 
@@ -127,3 +130,24 @@ Two rules worth keeping:
 
 Icons are [lucide-react](https://lucide.dev). Type is Inter, with tabular
 figures switched on for anything read down a column.
+
+### Phone screens
+
+- **A record is one row.** Trades, open positions, signals and report days
+  are rows (`components/ui/List.jsx`), grouped under "Today" / "Yesterday" /
+  a date where that helps. Anything beyond the row opens in a bottom sheet
+  (`components/ui/Sheet.jsx`): tap a trade for its premiums, index levels,
+  charges and net. The sheet closes on the X, a tap outside, a drag down, or
+  the phone's Back gesture.
+- **A field's name is darker than its value.** The operator's call: pale-grey
+  labels were the hardest text to read on a phone. The value keeps the larger
+  size, so it still carries the weight.
+- **Gross − Charges = Net stays three-across** on Report at every width, so
+  the subtraction reads as one line, not three unrelated totals.
+- **Home shows three numbers** (today's P&L, today's trades against the daily
+  limit, open positions) and adds a card only when there is something to act
+  on: an open trade, a blocked symbol, or live mode not ready.
+- **The header time is the refresh button.** It reloads every screen,
+  including the ones with their own fetch (Closed Trades, Report).
+- **Links keep the mode.** Every in-app link goes through `withMode()` from
+  `useTradingMode`, so switching tabs while viewing live stays on live.

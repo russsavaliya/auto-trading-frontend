@@ -132,6 +132,16 @@
   ::selection {
     @apply bg-brand-ring text-ink;
   }
+
+  /* A Sheet (components/ui/Sheet.jsx) is open: the page under it must not
+     scroll. Done here with :has() rather than by toggling a style from
+     JavaScript, so the lock can never be left behind by a missed cleanup.
+     The gutter stays reserved so a desktop page does not shift sideways when
+     its scrollbar goes away. */
+  html:has(dialog[open]) {
+    overflow: hidden;
+    scrollbar-gutter: stable;
+  }
 }
 
 /* ==========================================================================

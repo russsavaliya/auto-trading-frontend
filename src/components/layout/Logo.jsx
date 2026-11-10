@@ -31,7 +31,7 @@ export function LogoMark({ className, ...props }) {
  * written for — nothing rendered the wordmark-less Logo any more, and a prop
  * with no caller is a prop that quietly rots.
  */
-export function Logo({ className }) {
+export function Logo({ className, isLive = false }) {
   return (
     <div className={cn('flex items-center gap-2.5', className)}>
       <LogoMark className="size-8 shrink-0" />
@@ -40,7 +40,7 @@ export function Logo({ className }) {
           Trading Admin
         </span>
         <span className="text-muted block text-[0.6875rem] leading-tight">
-          BANKNIFTY · paper
+          BANKNIFTY · {isLive ? 'live' : 'paper'}
         </span>
       </span>
     </div>

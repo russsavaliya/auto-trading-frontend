@@ -184,3 +184,57 @@ export function formatPercent(fraction) {
   const pct = Number(fraction) * 100;
   return `${Number(pct.toFixed(5))}%`;
 }
+
+/**
+ * Big rupee amounts the Indian way: "₹37.12 L", "₹1.2 Cr". Below a lakh the
+ * full figure is short enough already. For totals shown three-across on a
+ * phone, where "₹37,12,345.60" would not fit a third of the screen.
+ */
+export function formatMoneyShort(n) {
+  if (n === null || n === undefined || Number.isNaN(Number(n))) return '—';
+  const v = Number(n);
+  const abs = Math.abs(v);
+  const sign = v < 0 ? '−' : '';
+  const trim = (x) => Number(x.toFixed(x >= 10 ? 1 : 2));
+  if (abs >= 1e7) return `${sign}₹${trim(abs / 1e7)} Cr`;
+  if (abs >= 1e5) return `${sign}₹${trim(abs / 1e5)} L`;
+  return `${sign}₹${Math.round(abs).toLocaleString('en-IN')}`;
+}
+
+/** The IST calendar day of a timestamp, as "2026-11-09". */
+export function dayKeyIST(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-CA', { timeZone: IST });
+}
+
+/** A list's day heading: "Today", "Yesterday", else "Mon, 09 Nov". IST has no DST, so −24h is yesterday. */
+export function formatDayHeading(dateKey, now = new Date()) {
+  if (dateKey === dayKeyIST(now.toISOString())) return 'Today';
+  if (dateKey === dayKeyIST(new Date(now.getTime() - 86_400_000).toISOString())) return 'Yesterday';
+  return formatDay(dateKey);
+}
+
+/**
+ * Splits a newest-first list into runs that share an IST day, in order:
+ * [{ key: '2026-11-09', items: [...] }, ...]. Used for the day headings on
+ * the phone lists, where each row then only needs a clock time.
+ */
+export function groupByDay(items, getIso) {
+  const groups = [];
+  for (const item of items) {
+    const key = dayKeyIST(getIso(item));
+    const last = groups[groups.length - 1];
+    if (last && last.key === key) last.items.push(item);
+    else groups.push({ key, items: [item] });
+  }
+  return groups;
+}
+
+/** Text colour for a signed amount. The sign carries the meaning; this only reinforces it. */
+export function moneyClass(n) {
+  if (n === null || n === undefined || Number.isNaN(Number(n))) return 'text-ink';
+  const v = Number(n);
+  return v > 0 ? 'text-profit' : v < 0 ? 'text-loss' : 'text-ink';
+}
