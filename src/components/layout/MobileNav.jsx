@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { cn } from '@/lib/cn';
+import { useTradingMode } from '@/hooks/useTradingMode';
 import { NAV_ITEMS } from './navItems';
 
 /**
@@ -16,6 +17,9 @@ import { NAV_ITEMS } from './navItems';
  * having ended when it has not.
  */
 export function MobileNav() {
+  // Tabs carry ?mode=live along, so switching screens never switches book.
+  const { withMode } = useTradingMode();
+
   return (
     <nav
       aria-label="Main"
@@ -25,7 +29,7 @@ export function MobileNav() {
         {NAV_ITEMS.map(({ path, short, label, icon: Icon }) => (
           <li key={path}>
             <NavLink
-              to={path}
+              to={withMode(path)}
               end={path === '/'}
               aria-label={label}
               className={({ isActive }) =>

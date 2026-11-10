@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { LogOut, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
@@ -17,13 +18,16 @@ import { cn } from '@/lib/cn';
  */
 export function Topbar({
   title,
+  shortTitle,
   description,
   lastUpdated,
+  onRefresh,
   offline,
   tradingEnabled,
   mode,
   onModeChange,
   liveAvailable,
+  settingsHref = '/settings',
   onLogout,
 }) {
   const stamp =
@@ -43,27 +47,26 @@ export function Topbar({
           />
           <div className="min-w-0">
             <h1 className="text-ink truncate text-[1.0625rem] leading-tight font-semibold tracking-tight sm:text-[0.9375rem]">
-              {title}
+              {shortTitle ? (
+                <>
+                  <span className="sm:hidden">{shortTitle}</span>
+                  <span className="hidden sm:inline">{title}</span>
+                </>
+              ) : (
+                title
+              )}
             </h1>
             <p className="text-muted mt-0.5 hidden truncate text-xs sm:block">{description}</p>
-            {stamp && (
-              <p className="text-faint tnum mt-0.5 flex items-center gap-1 truncate text-[0.6875rem] sm:hidden">
-                <RefreshCw className="size-2.5 shrink-0" aria-hidden="true" />
-                {stamp} IST
-              </p>
-            )}
+            {stamp && <RefreshStamp stamp={stamp} onRefresh={onRefresh} className="sm:hidden" />}
           </div>
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
           <ModeSwitch mode={mode} onChange={onModeChange} liveAvailable={liveAvailable} />
           {stamp && (
-            <span className="text-muted tnum hidden items-center gap-1.5 text-xs lg:inline-flex">
-              <RefreshCw className="size-3" aria-hidden="true" />
-              {stamp} IST
-            </span>
+            <RefreshStamp stamp={stamp} onRefresh={onRefresh} large className="hidden lg:inline-flex" />
           )}
-          <TradingStatus enabled={tradingEnabled} />
+          <TradingStatus enabled={tradingEnabled} href={settingsHref} />
           {/* Phone: Log out lives at the bottom of Settings, where apps keep
               it — a header slot is too valuable, and too easy to hit by
               accident, for an action nobody needs mid-session. */}
@@ -83,6 +86,50 @@ export function Topbar({
 }
 
 /**
+ * The last-refresh time, which is also the refresh button. The Home status
+ * card used to carry a separate Refresh button; with the card gone the time
+ * stamp is the natural place for it — it is the thing that changes when you
+ * press it, and it is on every screen. The spinner runs for at least 600ms so
+ * a fast reply still visibly happened.
+ */
+function RefreshStamp({ stamp, onRefresh, large = false, className }) {
+  const [busy, setBusy] = useState(false);
+
+  async function run() {
+    if (busy || !onRefresh) return;
+    setBusy(true);
+    try {
+      await Promise.all([onRefresh(), new Promise((r) => setTimeout(r, 600))]);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={run}
+      disabled={busy}
+      title="Refresh now"
+      aria-label={`Refresh now. Last updated ${stamp} IST`}
+      className={cn(
+        'text-muted hover:text-ink active:text-ink tnum items-center rounded-md transition-colors disabled:opacity-100',
+        large
+          ? 'hover:bg-subtle -mx-1 gap-1.5 px-2 py-1 text-xs'
+          : 'mt-px -mb-1 -ml-1.5 flex gap-1 px-1.5 py-1 text-[0.6875rem]',
+        className
+      )}
+    >
+      <RefreshCw
+        className={cn('shrink-0', large ? 'size-3' : 'size-2.5', busy && 'animate-spin')}
+        aria-hidden="true"
+      />
+      {stamp} IST
+    </button>
+  );
+}
+
+/**
  * Read-only. The switch itself now lives on Settings — but the STATE stays
  * here, on every screen, because "the bot silently stopped trading" is the
  * failure this dashboard exists to make impossible to miss, and a kill switch
@@ -93,12 +140,12 @@ export function Topbar({
  * than defaulting to OFF, because guessing wrong in either direction is worse
  * than saying so: a false "OFF" starts a panic, a false "ON" hides an outage.
  */
-function TradingStatus({ enabled }) {
+function TradingStatus({ enabled, href }) {
   const unknown = enabled === null || enabled === undefined;
 
   return (
     <Link
-      to="/settings"
+      to={href}
       title={
         unknown
           ? 'Could not read the trading status — open Settings'

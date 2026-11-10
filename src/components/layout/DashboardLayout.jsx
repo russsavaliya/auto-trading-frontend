@@ -20,13 +20,16 @@ import MobileNav from './MobileNav';
 const REFRESH_MS = 30_000;
 
 const PAGE_TITLES = {
-  '/': { title: 'Home', sub: 'Is the bot working, and what is it doing right now' },
+  '/': { title: 'Home', sub: "Today's result and what is open right now" },
   '/report': {
     title: 'Report',
     sub: 'Gross P&L, what it cost, and what is actually left',
   },
   '/closed-trades': {
     title: 'Closed Trades',
+    // The tab-bar word. "Closed Trades" beside the mode switch and the
+    // trading chip truncates on a 360px phone.
+    short: 'Trades',
     sub: 'Full history — option premium and index level side by side',
   },
   '/webhook-logs': { title: 'Signals', sub: 'Every alert from TradingView and what the bot did with it' },
@@ -49,7 +52,7 @@ const PAGE_TITLES = {
 export default function DashboardLayout() {
   const { logout } = useAuth();
   const location = useLocation();
-  const { mode, setMode, isLive } = useTradingMode();
+  const { mode, setMode, isLive, withMode } = useTradingMode();
 
   const [summary, setSummary] = useState(null);
   const [days, setDays] = useState(null);
@@ -61,6 +64,10 @@ export default function DashboardLayout() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
+  // Bumped by the header's refresh only — never by the 30s timer. Pages with
+  // their own fetch (Closed Trades, Report) reload on it, so "refresh" means
+  // the whole screen, not just the parts this layout happens to poll.
+  const [reloadKey, setReloadKey] = useState(0);
 
   const loadAll = useCallback(async () => {
     try {
@@ -109,6 +116,11 @@ export default function DashboardLayout() {
     await Promise.all([loadAll(), loadConfig()]);
   }, [loadAll, loadConfig]);
 
+  const refreshNow = useCallback(async () => {
+    setReloadKey((k) => k + 1);
+    await refresh();
+  }, [refresh]);
+
   useEffect(() => {
     setLoading(true);
     setSummary(null);
@@ -133,7 +145,7 @@ export default function DashboardLayout() {
     window.scrollTo(0, 0);
   }, [location.pathname]);
 
-  const { title, sub } = PAGE_TITLES[location.pathname] || PAGE_TITLES['/'];
+  const { title, short, sub } = PAGE_TITLES[location.pathname] || PAGE_TITLES['/'];
 
   return (
     <div className={cn('flex min-h-dvh', isLive && 'bg-loss-soft/40')}>
@@ -148,18 +160,21 @@ export default function DashboardLayout() {
       )}
 
       {/* md and up */}
-      <Sidebar />
+      <Sidebar isLive={isLive} />
 
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar
           title={title}
+          shortTitle={short}
           description={sub}
           lastUpdated={lastUpdated}
+          onRefresh={refreshNow}
           offline={Boolean(error)}
           tradingEnabled={config ? config.trading_enabled : null}
           mode={mode}
           onModeChange={setMode}
           liveAvailable={Boolean(config?.live?.enabled)}
+          settingsHref={withMode('/settings')}
           onLogout={logout}
         />
 
@@ -181,6 +196,7 @@ export default function DashboardLayout() {
                 webhookLogs,
                 config,
                 refresh,
+                reloadKey,
                 mode,
                 isLive,
                 offline: Boolean(error),

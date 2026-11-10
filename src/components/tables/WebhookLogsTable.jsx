@@ -1,22 +1,8 @@
 import { Webhook } from 'lucide-react';
-import { formatTime, formatSpot } from '@/utils/format';
+import { formatClock, formatDayHeading, formatSpot, formatTime, groupByDay } from '@/utils/format';
 import { Badge } from '@/components/ui/Badge';
-import {
-  Table,
-  THead,
-  TBody,
-  TR,
-  TH,
-  TD,
-  Dash,
-  CardList,
-  RecordCard,
-  RecordHead,
-  RecordMeta,
-  RecordFooter,
-  FieldGrid,
-  Field,
-} from '@/components/ui/Table';
+import { Table, THead, TBody, TR, TH, TD, Dash } from '@/components/ui/Table';
+import { ListGroup } from '@/components/ui/List';
 import { EmptyState } from '@/components/ui/Feedback';
 import { glossReason, logOutcome } from '@/utils/signals';
 
@@ -27,9 +13,10 @@ import { glossReason, logOutcome } from '@/utils/signals';
  * with the Home status card. Outcomes are read through logOutcome() so the
  * live screen shows the LIVE result of each alert, not paper's.
  *
- * On the phone that gloss becomes the card's footer line rather than a
- * truncated cell: it is a sentence, and a sentence clipped at 24rem in a
- * side-scrolling column is the one thing on this screen worth reading in full.
+ * On the phone each alert is one row under its day: what it asked for and
+ * when on the first line with the outcome opposite, then the plain-English
+ * reason in full — it is a sentence, and the one thing on this screen worth
+ * reading whole — then the index and score in small type.
  */
 
 function OutcomeBadge({ log }) {
@@ -102,49 +89,55 @@ export default function WebhookLogsTable({ logs }) {
           })}
         </TBody>
       </Table>
-
-      <CardList>
-        {logs.map((log) => {
-          const p = log.raw_payload || {};
-          const { reason } = logOutcome(log);
-          const gloss = glossReason(reason);
-          return (
-            <RecordCard key={log.id}>
-              <RecordHead
-                lead={<SignalBadge payload={p} />}
-                trail={<OutcomeBadge log={log} />}
-              />
-
-              <RecordMeta>
-                <span>{formatTime(log.received_at, { withSeconds: true })}</span>
-                {p.symbol && (
-                  <>
-                    <span aria-hidden="true">·</span>
-                    <span>{p.symbol}</span>
-                  </>
-                )}
-              </RecordMeta>
-
-              <FieldGrid>
-                <Field label="Index" dim>
-                  {formatSpot(p.price)}
-                </Field>
-                <Field label="Score" dim>
-                  {p.score ?? <Dash />}
-                </Field>
-              </FieldGrid>
-
-              {gloss && (
-                <RecordFooter>
-                  <p title={reason ?? ''} className="text-muted text-xs leading-relaxed">
-                    {gloss[0]}
-                  </p>
-                </RecordFooter>
-              )}
-            </RecordCard>
-          );
-        })}
-      </CardList>
     </>
+  );
+}
+
+/** Phone: alerts grouped under their IST day, one row each. */
+export function WebhookLogsList({ logs }) {
+  if (!logs || logs.length === 0) {
+    return <EmptyState icon={Webhook}>No signals yet.</EmptyState>;
+  }
+
+  return (
+    <div className="md:hidden">
+      {groupByDay(logs, (l) => l.received_at).map((g) => (
+        <ListGroup key={g.key} heading={formatDayHeading(g.key)}>
+          {g.items.map((log) => (
+            <SignalRow key={log.id} log={log} />
+          ))}
+        </ListGroup>
+      ))}
+    </div>
+  );
+}
+
+function SignalRow({ log }) {
+  const p = log.raw_payload || {};
+  const { reason } = logOutcome(log);
+  const gloss = glossReason(reason);
+  const facts = [
+    p.price != null && `Index ${formatSpot(p.price)}`,
+    p.score != null && `Score ${p.score}`,
+  ].filter(Boolean);
+
+  return (
+    <li className="px-4 py-3">
+      <div className="flex items-center justify-between gap-3">
+        <span className="flex min-w-0 items-center gap-2">
+          <SignalBadge payload={p} />
+          <span className="text-ink-soft tnum text-[0.8125rem] font-medium">
+            {formatClock(log.received_at)}
+          </span>
+        </span>
+        <OutcomeBadge log={log} />
+      </div>
+      {gloss && (
+        <p title={reason ?? ''} className="text-ink mt-1.5 text-[0.8125rem] leading-snug">
+          {gloss[0]}
+        </p>
+      )}
+      {facts.length > 0 && <p className="text-muted tnum mt-1 text-xs">{facts.join(' · ')}</p>}
+    </li>
   );
 }

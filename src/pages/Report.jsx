@@ -10,35 +10,23 @@ import {
   Tooltip,
   ReferenceLine,
 } from 'recharts';
-import { Receipt, TrendingDown, Wallet } from 'lucide-react';
+import { Receipt, TrendingDown } from 'lucide-react';
 import { fetchPnlReport } from '@/api';
 import { useAuth } from '@/context/AuthContext';
 import { Card, CardHeader, CardBody } from '@/components/ui/Card';
 import { Callout, EmptyState, ErrorBanner, LoadingState } from '@/components/ui/Feedback';
-import {
-  Table,
-  THead,
-  TBody,
-  TR,
-  TH,
-  TD,
-  MoneyTD,
-  CardList,
-  RecordCard,
-  RecordHead,
-  RecordValue,
-  RecordMeta,
-  FieldGrid,
-  Field,
-} from '@/components/ui/Table';
+import { Table, THead, TBody, TR, TH, TD, MoneyTD } from '@/components/ui/Table';
+import { FlushList, ListRow, RowMain, RowEnd } from '@/components/ui/List';
 import { TooltipCard } from '@/components/charts/ChartTooltip';
 import { chartColors, axisTheme, chartGeometry } from '@/lib/chartTheme';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import {
   formatMoney,
   formatMoneyCompact,
+  formatMoneyShort,
   formatDay,
   formatPercent,
+  moneyClass,
   niceBounds,
 } from '@/utils/format';
 import { cn } from '@/lib/cn';
@@ -70,14 +58,19 @@ const COMPONENT_LABELS = {
 
 export default function Report() {
   const { logout } = useAuth();
-  const { mode, isLive } = useOutletContext();
+  const { mode, isLive, reloadKey } = useOutletContext();
   const compact = useIsMobile();
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
 
+  // Blank the page only when the book changes. A manual refresh (reloadKey)
+  // swaps the numbers in place instead of flashing "Building report…".
+  useEffect(() => {
+    setData(null);
+  }, [mode]);
+
   useEffect(() => {
     let cancelled = false;
-    setData(null);
     fetchPnlReport(mode)
       .then((res) => {
         if (!cancelled) {
@@ -96,7 +89,7 @@ export default function Report() {
     return () => {
       cancelled = true;
     };
-  }, [logout, mode]);
+  }, [logout, mode, reloadKey]);
 
   if (error) return <ErrorBanner>{error}</ErrorBanner>;
   if (!data) return <LoadingState>Building report…</LoadingState>;
@@ -132,39 +125,55 @@ export default function Report() {
     <>
       {totals.estimatedChargeTrades > 0 && (
         <Callout tone="warn">
-          <strong className="text-ink font-semibold">
-            {totals.estimatedChargeTrades} of {totals.tradeCount} trades
-          </strong>{' '}
-          closed before charge recording existed, so their cost is recomputed here at{' '}
-          <em>today&rsquo;s</em> rates rather than the rates that actually applied. Run{' '}
-          <code className="bg-warn-soft rounded px-1 py-px text-[0.75rem]">
-            node scripts/backfill-charges.js --dry
-          </code>{' '}
-          to review, then <code className="bg-warn-soft rounded px-1 py-px text-[0.75rem]">--commit</code>{' '}
-          to store them.
+          <p>
+            <strong className="text-ink font-semibold">
+              Charges are estimated for {totals.estimatedChargeTrades} of {totals.tradeCount} trades.
+            </strong>{' '}
+            They closed before charges were saved, so today&rsquo;s rates are used for them.
+          </p>
+          <details className="mt-1.5">
+            <summary className="text-warn cursor-pointer text-xs font-semibold select-none">
+              How to fix this
+            </summary>
+            <p className="mt-1.5 text-xs leading-relaxed">
+              Run{' '}
+              <code className="bg-warn-soft rounded px-1 py-px">node scripts/backfill-charges.js --dry</code>{' '}
+              to review, then <code className="bg-warn-soft rounded px-1 py-px">--commit</code> to store
+              them.
+            </p>
+          </details>
         </Callout>
       )}
 
       {/* ---- The three numbers, always together --------------------------- */}
-      <Waterfall totals={totals} />
+      <Summary totals={totals} />
 
-      <div className="mb-5 grid gap-4 sm:mb-6 sm:grid-cols-3">
-        <MetricTile
-          label="Trades"
-          value={totals.tradeCount}
-          sub={`${totals.wins}W / ${totals.losses}L on net · ${totals.winRate}% win rate`}
-        />
-        <MetricTile
-          label="Avg cost per trade"
-          value={formatMoney(totals.avgChargePerTrade, { showSign: false })}
-          sub="Round trip, both legs"
-        />
-        <MetricTile
-          label="Total turnover"
-          value={formatMoney(totals.buyTurnover + totals.sellTurnover, { showSign: false })}
-          sub="Premium traded, buy + sell"
-        />
-      </div>
+      <Card className="mb-5 sm:mb-6">
+        <dl className="divide-line grid grid-cols-3 divide-x">
+          <Stat
+            label="Trades"
+            value={totals.tradeCount}
+            hint={
+              <>
+                <span className="sm:hidden">{Math.round(totals.winRate)}% won</span>
+                <span className="hidden sm:inline">
+                  {totals.wins} won · {totals.losses} lost · {Math.round(totals.winRate)}% after charges
+                </span>
+              </>
+            }
+          />
+          <Stat
+            label="Avg charge"
+            value={formatMoney(totals.avgChargePerTrade, { showSign: false })}
+            hint="per trade"
+          />
+          <Stat
+            label="Turnover"
+            value={formatMoneyShort(totals.buyTurnover + totals.sellTurnover)}
+            hint="buy + sell"
+          />
+        </dl>
+      </Card>
 
       {/* ---- Where the money went ----------------------------------------- */}
       <Card className="mb-5 sm:mb-6">
@@ -182,10 +191,10 @@ export default function Report() {
             {components.map(([key, value]) => (
               <li key={key}>
                 <div className="flex items-baseline justify-between gap-3">
-                  <span className="text-ink-soft text-[0.8125rem]">
+                  <span className="text-ink text-[0.8125rem] font-medium">
                     {COMPONENT_LABELS[key] || key}
                   </span>
-                  <span className="text-ink tnum shrink-0 text-[0.8125rem] font-semibold">
+                  <span className="text-ink-soft tnum shrink-0 text-[0.8125rem] font-semibold">
                     {formatMoney(value, { showSign: false })}
                     <span className="text-faint ml-1.5 text-[0.6875rem] font-normal">
                       {((value / totals.charges) * 100).toFixed(1)}%
@@ -229,113 +238,138 @@ export default function Report() {
 
       {/* ---- Day by day ---------------------------------------------------- */}
       <Card>
-        <CardHeader title="Day by day" description="Gross, cost and net for every trading day" />
-        <CardBody>
+        <CardHeader
+          title="Day by day"
+          description="Net is what was left after charges · newest day first"
+        />
+        <CardBody className="hidden md:block">
           <DayTable days={days} />
         </CardBody>
+        <DayList days={days} />
       </Card>
     </>
   );
 }
 
 /**
- * Gross minus cost equals net, laid out so the subtraction is the visual.
+ * Gross − charges = net, side by side on every screen size.
  *
- * The net figure is the one sized as the headline. Gross is deliberately NOT
- * given equal weight — it is the intermediate number, and this page exists
- * because it was previously being read as the result.
+ * Three across even on a phone: the subtraction IS the message, and stacked
+ * one per row it read as three unrelated totals — you had to scroll to learn
+ * that the big red number was what the green one became. The − and = sit on
+ * the dividers as small chips, so the equation costs no width.
+ *
+ * Net gets the tinted cell; gross does not get the emphasis it used to be
+ * read with. On a phone a third of the screen is ~110px, so a long figure
+ * steps its type size down instead of wrapping, and paise are set smaller.
  */
-function Waterfall({ totals }) {
+function Summary({ totals }) {
+  const gross = totals.grossPnl;
   const net = totals.netPnl;
-  const eaten = totals.grossPnl > 0 ? Math.min(1, totals.charges / totals.grossPnl) : 1;
 
   return (
     <Card className="mb-5 sm:mb-6">
-      <CardBody className="p-5 sm:p-6">
-        <div className="grid gap-4 sm:grid-cols-[1fr_auto_1fr_auto_1.2fr] sm:items-center sm:gap-3">
-          <Figure
-            icon={Wallet}
-            label="Gross P&L"
-            value={formatMoney(totals.grossPnl)}
-            tone={totals.grossPnl >= 0 ? 'profit' : 'loss'}
-            hint="Premium difference only"
-          />
-          <Operator>−</Operator>
-          <Figure
-            icon={Receipt}
-            label="Charges"
-            value={formatMoney(totals.charges, { showSign: false })}
-            tone="muted"
-            hint={`${totals.tradeCount} round trips`}
-          />
-          <Operator>=</Operator>
-          <Figure
-            icon={TrendingDown}
-            label="Net P&L"
-            value={formatMoney(net)}
-            tone={net >= 0 ? 'profit' : 'loss'}
-            hint="What actually reaches the account"
-            hero
-          />
-        </div>
-
-        {totals.grossPnl > 0 && (
-          <div className="border-line mt-5 border-t pt-4">
-            <div className="text-muted mb-1.5 flex items-baseline justify-between text-xs">
-              <span>Share of gross profit eaten by costs</span>
-              <span className="text-ink tnum font-semibold">{(eaten * 100).toFixed(0)}%</span>
-            </div>
-            <div className="bg-subtle h-2 overflow-hidden rounded-full">
-              <div className="bg-loss h-full rounded-full" style={{ width: `${eaten * 100}%` }} />
-            </div>
-          </div>
-        )}
-      </CardBody>
+      <dl className="grid grid-cols-3">
+        <Figure label="Gross" amount={gross} signed hint="Before charges" />
+        <Figure label="Charges" amount={totals.charges} op="−" hint={`${totals.tradeCount} trades`} />
+        <Figure label="Net" amount={net} signed op="=" hint="What you keep" emphasis />
+      </dl>
+      {gross > 0 && <CostShare charges={totals.charges} gross={gross} />}
     </Card>
   );
 }
 
-function Figure({ icon: Icon, label, value, tone, hint, hero = false }) {
-  const TONES = { profit: 'text-profit', loss: 'text-loss', muted: 'text-ink' };
+function Figure({ label, amount, signed = false, op, hint, emphasis = false }) {
+  const text = formatMoney(amount, { showSign: signed });
+  const size =
+    text.length <= 8
+      ? 'text-lg sm:text-2xl'
+      : text.length <= 10
+        ? 'text-base sm:text-2xl'
+        : 'text-sm sm:text-xl lg:text-2xl';
+
   return (
-    <div className={cn('min-w-0', hero && 'sm:border-line sm:border-l sm:pl-4')}>
-      <div className="text-muted flex items-center gap-1.5 text-[0.6875rem] font-medium tracking-wide uppercase">
-        {Icon && <Icon className="size-3 shrink-0" aria-hidden="true" />}
-        {label}
-      </div>
-      <div
+    <div
+      className={cn(
+        'relative min-w-0 py-4 pr-2 pl-4 sm:px-6 sm:py-5',
+        op && 'border-line border-l',
+        emphasis && (amount < 0 ? 'bg-loss-soft/70' : amount > 0 ? 'bg-profit-soft/70' : '')
+      )}
+    >
+      {op && (
+        <span
+          aria-hidden="true"
+          className="border-line bg-surface text-ink-soft shadow-card absolute top-1/2 left-0 z-10 flex size-5 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border text-xs leading-none font-semibold sm:size-6 sm:text-sm"
+        >
+          {op}
+        </span>
+      )}
+      <dt className="text-ink text-xs font-semibold sm:text-[0.8125rem]">{label}</dt>
+      <dd
         className={cn(
-          'tnum mt-1.5 leading-none font-semibold tracking-tight',
-          hero ? 'text-[1.75rem] sm:text-[2rem]' : 'text-xl sm:text-2xl',
-          TONES[tone] ?? 'text-ink'
+          'tnum mt-1.5 leading-tight font-semibold tracking-tight whitespace-nowrap',
+          size,
+          signed ? moneyClass(amount) : 'text-ink'
         )}
       >
-        {value}
-      </div>
-      {hint && <div className="text-faint mt-1.5 text-[0.6875rem]">{hint}</div>}
+        <Amount text={text} />
+      </dd>
+      <dd className="text-muted mt-1 text-[0.6875rem] leading-snug sm:text-xs">{hint}</dd>
     </div>
   );
 }
 
-/** The − and = signs. Hidden on mobile, where the figures simply stack. */
-function Operator({ children }) {
+/** "−₹7,340" with ".19" a size smaller: the rupees are what you read first. */
+function Amount({ text }) {
+  const dot = text.lastIndexOf('.');
+  if (dot === -1) return text;
   return (
-    <div className="text-faint hidden text-lg font-light sm:block" aria-hidden="true">
-      {children}
+    <>
+      {text.slice(0, dot)}
+      <span className="text-[0.78em]">{text.slice(dot)}</span>
+    </>
+  );
+}
+
+/**
+ * How much of the gross profit the charges took. Past 100% the bar is simply
+ * full and the figure switches to a multiple — "2,081%" is a number nobody
+ * can picture; "20.8×" is.
+ */
+function CostShare({ charges, gross }) {
+  const ratio = charges / gross;
+  const over = ratio > 1;
+  const pct = Math.round(ratio * 100);
+
+  return (
+    <div className="border-line border-t px-4 py-3.5 sm:px-6">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-ink text-xs font-semibold">Charges vs gross profit</span>
+        <span className="text-loss tnum text-sm font-semibold">
+          {over ? `${ratio.toFixed(1)}×` : `${pct}%`}
+        </span>
+      </div>
+      <div className="bg-subtle mt-2 h-2 overflow-hidden rounded-full">
+        <div className="bg-loss h-full rounded-full" style={{ width: `${Math.min(1, ratio) * 100}%` }} />
+      </div>
+      <p className="text-muted mt-2 text-xs">
+        {over
+          ? 'Charges were bigger than the whole gross profit.'
+          : `Charges took ${pct}% of the gross profit.`}
+      </p>
     </div>
   );
 }
 
-function MetricTile({ label, value, sub }) {
+/** One of the three counts under the summary — a cell of a single card, not a card each. */
+function Stat({ label, value, hint }) {
   return (
-    <div className="rounded-card border-line bg-surface shadow-card border p-4 sm:p-5">
-      <div className="text-muted text-[0.625rem] font-medium tracking-wide uppercase sm:text-[0.6875rem]">
-        {label}
-      </div>
-      <div className="text-ink tnum mt-2 text-xl leading-none font-semibold tracking-tight sm:text-2xl">
+    <div className="min-w-0 px-4 py-3.5 sm:px-6 sm:py-5">
+      <dt className="text-ink text-xs font-semibold sm:text-[0.8125rem]">{label}</dt>
+      <dd className="text-ink-soft tnum mt-1.5 truncate text-base leading-tight font-semibold tracking-tight sm:text-2xl">
         {value}
-      </div>
-      <div className="text-muted mt-1.5 text-[0.6875rem] sm:text-xs">{sub}</div>
+      </dd>
+      <dd className="text-muted mt-1 text-[0.6875rem] leading-snug sm:text-xs">{hint}</dd>
     </div>
   );
 }
@@ -414,67 +448,58 @@ function DayTable({ days }) {
   const rows = [...days].reverse(); // newest first — the day you care about
 
   return (
-    <>
-      <Table>
-        <THead>
-          <TR className="hover:bg-transparent">
-            <TH>Date</TH>
-            <TH num>Trades</TH>
-            <TH num>Gross</TH>
-            <TH num>Charges</TH>
-            <TH num>Net</TH>
-            <TH num>Cumulative net</TH>
-          </TR>
-        </THead>
-        <TBody>
-          {rows.map((d) => (
-            <TR key={d.date}>
-              <TD nowrap className="text-ink font-medium">
-                {formatDay(d.date)}
-              </TD>
-              <TD num dim>
-                {d.trades}
-              </TD>
-              <MoneyTD value={d.grossPnl}>{formatMoney(d.grossPnl)}</MoneyTD>
-              <TD num dim>
-                {formatMoney(d.charges, { showSign: false })}
-              </TD>
-              <MoneyTD value={d.netPnl}>{formatMoney(d.netPnl)}</MoneyTD>
-              <MoneyTD value={d.cumulativeNet}>{formatMoney(d.cumulativeNet)}</MoneyTD>
-            </TR>
-          ))}
-        </TBody>
-      </Table>
-
-      <CardList>
+    <Table>
+      <THead>
+        <TR className="hover:bg-transparent">
+          <TH>Date</TH>
+          <TH num>Trades</TH>
+          <TH num>Gross</TH>
+          <TH num>Charges</TH>
+          <TH num>Net</TH>
+          <TH num>Cumulative net</TH>
+        </TR>
+      </THead>
+      <TBody>
         {rows.map((d) => (
-          <RecordCard key={d.date}>
-            <RecordHead
-              lead={<span className="text-ink text-[0.8125rem] font-semibold">{formatDay(d.date)}</span>}
-              trail={
-                <>
-                  <RecordValue value={d.netPnl}>{formatMoney(d.netPnl)}</RecordValue>
-                  <span className="text-faint block text-[0.625rem] tracking-wide uppercase">
-                    Net
-                  </span>
-                </>
-              }
-            />
-            <RecordMeta>
-              <span>
-                {d.trades} trade{d.trades === 1 ? '' : 's'}
-              </span>
-            </RecordMeta>
-            <FieldGrid cols={3}>
-              <Field label="Gross">{formatMoney(d.grossPnl)}</Field>
-              <Field label="Charges" dim>
-                {formatMoney(d.charges, { showSign: false })}
-              </Field>
-              <Field label="Cumulative">{formatMoney(d.cumulativeNet)}</Field>
-            </FieldGrid>
-          </RecordCard>
+          <TR key={d.date}>
+            <TD nowrap className="text-ink font-medium">
+              {formatDay(d.date)}
+            </TD>
+            <TD num dim>
+              {d.trades}
+            </TD>
+            <MoneyTD value={d.grossPnl}>{formatMoney(d.grossPnl)}</MoneyTD>
+            <TD num dim>
+              {formatMoney(d.charges, { showSign: false })}
+            </TD>
+            <MoneyTD value={d.netPnl}>{formatMoney(d.netPnl)}</MoneyTD>
+            <MoneyTD value={d.cumulativeNet}>{formatMoney(d.cumulativeNet)}</MoneyTD>
+          </TR>
         ))}
-      </CardList>
-    </>
+      </TBody>
+    </Table>
+  );
+}
+
+/** Phone: one row per day — net on the right, the gross and charges behind it underneath. */
+function DayList({ days }) {
+  const rows = [...days].reverse();
+
+  return (
+    <FlushList className="md:hidden">
+      {rows.map((d) => (
+        <ListRow key={d.date}>
+          <RowMain
+            title={<span className="text-ink text-[0.9375rem] font-semibold">{formatDay(d.date)}</span>}
+            detail={`${d.trades} trade${d.trades === 1 ? '' : 's'} · gross ${formatMoney(d.grossPnl)}`}
+          />
+          <RowEnd
+            value={formatMoney(d.netPnl)}
+            detail={`${formatMoney(d.charges, { showSign: false })} charges`}
+            className={moneyClass(d.netPnl)}
+          />
+        </ListRow>
+      ))}
+    </FlushList>
   );
 }

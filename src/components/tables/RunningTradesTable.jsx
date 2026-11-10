@@ -1,32 +1,19 @@
-import { CircleSlash } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import {
+  formatClock,
+  formatContract,
+  formatDuration,
   formatMoney,
   formatPremium,
   formatSpot,
   formatTime,
-  formatDuration,
-  formatClock,
+  moneyClass,
 } from '@/utils/format';
-import { Badge, InlineFlag } from '@/components/ui/Badge';
-import {
-  Table,
-  THead,
-  TBody,
-  TR,
-  TH,
-  TD,
-  MoneyTD,
-  Dash,
-  CardList,
-  RecordCard,
-  RecordHead,
-  RecordValue,
-  RecordMeta,
-  RecordFooter,
-  FieldGrid,
-  Field,
-} from '@/components/ui/Table';
-import { EmptyState } from '@/components/ui/Feedback';
+import { toNumber } from '@/utils/trades';
+import { InlineFlag } from '@/components/ui/Badge';
+import { Table, THead, TBody, TR, TH, TD, MoneyTD, Dash } from '@/components/ui/Table';
+import { FlushList, ListRow, RowMain, RowEnd } from '@/components/ui/List';
+import { SideBadge } from '@/components/trades/TradeBadges';
 import ContractLabel from '@/components/tables/ContractLabel';
 
 /**
@@ -34,20 +21,14 @@ import ContractLabel from '@/components/tables/ContractLabel';
  *
  * The old version showed only the entry price, which cannot tell you the one
  * thing this table exists to answer: is the position winning right now. The
- * backend now attaches current_premium and unrealized_pnl from the same source
+ * backend attaches current_premium and unrealized_pnl from the same source
  * that prices paper fills, so an open trade and the closed trade it becomes
  * are valued consistently.
  *
- * Two renderings of the same rows: a table from `md`, a record list below it.
- * On the phone card the unrealised figure is promoted to the headline slot,
- * because "is this winning" is the question and it should not need a sideways
- * scroll past eight other columns to answer.
+ * Two arrangements of the same rows: a table from `md`, flush rows below it.
+ * On the phone row the unrealised figure is the headline and the entry →
+ * now premium sits under it; tapping opens the full detail sheet.
  */
-
-function SideBadge({ signalType }) {
-  const isCall = signalType?.startsWith('CALL');
-  return <Badge variant={isCall ? 'call' : 'put'}>{isCall ? 'CALL' : 'PUT'}</Badge>;
-}
 
 /**
  * The broker's own view, kept separate from our lifecycle status.
@@ -63,134 +44,117 @@ function BrokerFlag({ status }) {
   return <InlineFlag title={`Upstox order status: ${status}`}>{status}</InlineFlag>;
 }
 
-/** The one case where BrokerFlag renders nothing — used to skip an empty footer. */
-const hasBrokerFlag = (status) => status !== 'complete';
-
 /** Timestamp of the candle a mark came from, shown beside the mark itself. */
 function MarkClock({ at }) {
   if (!at) return null;
-  return (
-    <InlineFlag title="Time of the candle this mark came from">{formatClock(at)}</InlineFlag>
-  );
+  return <InlineFlag title="Time of the candle this mark came from">{formatClock(at)}</InlineFlag>;
 }
 
-export default function RunningTradesTable({ trades }) {
-  if (!trades || trades.length === 0) {
-    return <EmptyState icon={CircleSlash}>Flat — no positions open.</EmptyState>;
-  }
+const heldSoFar = (t) => formatDuration(t.created_at, new Date().toISOString());
 
+/** Desktop and tablet. */
+export function OpenTradesTable({ trades, onSelect }) {
   return (
-    <>
-      <Table>
-        <THead>
-          <TR className="hover:bg-transparent">
-            <TH>#</TH>
-            <TH>Side</TH>
-            <TH>Contract</TH>
-            <TH>Opened</TH>
-            <TH>Held</TH>
-            <TH num>Qty</TH>
-            <TH num>Entry premium</TH>
-            <TH num>Now</TH>
-            <TH num>Index at entry</TH>
-            <TH num>Unrealised</TH>
-            <TH>Broker</TH>
-          </TR>
-        </THead>
-        <TBody>
-          {trades.map((t) => {
-            const u = t.unrealized_pnl == null ? null : Number(t.unrealized_pnl);
-            return (
-              <TR key={t.id}>
-                <TD dim>{t.id}</TD>
-                <TD>
-                  <SideBadge signalType={t.signal_type} />
-                </TD>
-                <TD>
-                  <ContractLabel trade={t} />
-                </TD>
-                <TD nowrap>{formatTime(t.created_at)}</TD>
-                <TD dim nowrap>
-                  {formatDuration(t.created_at, new Date().toISOString())}
-                </TD>
-                <TD num dim>
-                  {t.quantity ?? <Dash />}
-                </TD>
-                <TD num>{formatPremium(t.entry_price)}</TD>
-                <TD num>
-                  {formatPremium(t.current_premium)}
-                  <MarkClock at={t.current_premium_at} />
-                </TD>
-                <TD num dim>
-                  {formatSpot(t.entry_spot)}
-                </TD>
-                <MoneyTD value={u}>{u == null ? <Dash /> : formatMoney(u)}</MoneyTD>
-                <TD>
-                  <BrokerFlag status={t.broker_entry_status} />
-                </TD>
-              </TR>
-            );
-          })}
-        </TBody>
-      </Table>
-
-      <CardList>
+    <Table>
+      <THead>
+        <TR className="hover:bg-transparent">
+          <TH>#</TH>
+          <TH>Side</TH>
+          <TH>Contract</TH>
+          <TH>Opened</TH>
+          <TH>Held</TH>
+          <TH num>Qty</TH>
+          <TH num>Entry premium</TH>
+          <TH num>Now</TH>
+          <TH num>Index at entry</TH>
+          <TH num>Unrealised</TH>
+          <TH>Broker</TH>
+          <TH>
+            <span className="sr-only">Details</span>
+          </TH>
+        </TR>
+      </THead>
+      <TBody>
         {trades.map((t) => {
-          const u = t.unrealized_pnl == null ? null : Number(t.unrealized_pnl);
+          const u = toNumber(t.unrealized_pnl);
           return (
-            <RecordCard key={t.id}>
-              <RecordHead
-                lead={
-                  <>
-                    <SideBadge signalType={t.signal_type} />
-                    <span className="text-ink-soft text-xs">
-                      <ContractLabel trade={t} />
-                    </span>
-                    <span className="text-muted tnum text-xs">#{t.id}</span>
-                  </>
-                }
-                trail={
-                  <>
-                    <RecordValue value={u}>
-                      {u == null ? <Dash /> : formatMoney(u)}
-                    </RecordValue>
-                    <span className="text-faint block text-[0.625rem] tracking-wide uppercase">
-                      Unrealised
-                    </span>
-                  </>
-                }
-              />
-
-              <RecordMeta>
-                <span>Opened {formatTime(t.created_at)}</span>
-                <span aria-hidden="true">·</span>
-                <span>held {formatDuration(t.created_at, new Date().toISOString())}</span>
-              </RecordMeta>
-
-              <FieldGrid>
-                <Field label="Entry premium">{formatPremium(t.entry_price)}</Field>
-                <Field label="Now">
-                  {formatPremium(t.current_premium)}
-                  <MarkClock at={t.current_premium_at} />
-                </Field>
-                <Field label="Index at entry" dim>
-                  {formatSpot(t.entry_spot)}
-                </Field>
-                <Field label="Qty" dim>
-                  {t.quantity ?? <Dash />}
-                </Field>
-              </FieldGrid>
-
-              {hasBrokerFlag(t.broker_entry_status) && (
-                <RecordFooter>
-                  <span className="text-faint text-[0.625rem] tracking-wide uppercase">Broker</span>
-                  <BrokerFlag status={t.broker_entry_status} />
-                </RecordFooter>
-              )}
-            </RecordCard>
+            <TR key={t.id} onClick={() => onSelect(t)} className="cursor-pointer">
+              <TD dim>{t.id}</TD>
+              <TD>
+                <SideBadge signalType={t.signal_type} />
+              </TD>
+              <TD>
+                <ContractLabel trade={t} />
+              </TD>
+              <TD nowrap>{formatTime(t.created_at)}</TD>
+              <TD dim nowrap>
+                {heldSoFar(t)}
+              </TD>
+              <TD num dim>
+                {t.quantity ?? <Dash />}
+              </TD>
+              <TD num>{formatPremium(t.entry_price)}</TD>
+              <TD num>
+                {formatPremium(t.current_premium)}
+                <MarkClock at={t.current_premium_at} />
+              </TD>
+              <TD num dim>
+                {formatSpot(t.entry_spot)}
+              </TD>
+              <MoneyTD value={u}>{u === null ? <Dash /> : formatMoney(u)}</MoneyTD>
+              <TD>
+                <BrokerFlag status={t.broker_entry_status} />
+              </TD>
+              <TD className="w-9 py-1.5 pr-1">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelect(t);
+                  }}
+                  aria-label={`Details for trade #${t.id}`}
+                  className="text-faint hover:bg-subtle hover:text-ink flex size-7 items-center justify-center rounded-md transition-colors"
+                >
+                  <ChevronRight className="size-4" aria-hidden="true" />
+                </button>
+              </TD>
+            </TR>
           );
         })}
-      </CardList>
-    </>
+      </TBody>
+    </Table>
   );
 }
+
+/** Phone: rows edge to edge inside the Open positions card. */
+export function OpenTradesList({ trades, onSelect }) {
+  return (
+    <FlushList className="md:hidden">
+      {trades.map((t) => {
+        const u = toNumber(t.unrealized_pnl);
+        return (
+          <ListRow key={t.id} onClick={() => onSelect(t)}>
+            <RowMain
+              title={
+                <>
+                  <SideBadge signalType={t.signal_type} />
+                  <span className="text-ink tnum truncate text-[0.9375rem] font-semibold">
+                    {formatContract(t) ?? t.symbol}
+                  </span>
+                </>
+              }
+              detail={`Since ${formatClock(t.created_at)} · ${heldSoFar(t)}`}
+            />
+            <RowEnd
+              value={u === null ? 'Updating' : formatMoney(u)}
+              detail={`${formatPremium(t.entry_price)} → ${formatPremium(t.current_premium)}`}
+              className={u === null ? 'text-muted' : moneyClass(u)}
+            />
+          </ListRow>
+        );
+      })}
+    </FlushList>
+  );
+}
+
+export default OpenTradesTable;

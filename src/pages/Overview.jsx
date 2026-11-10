@@ -1,137 +1,228 @@
+import { useCallback, useState } from 'react';
 import { useOutletContext, Link } from 'react-router-dom';
-import { Activity, ArrowRight, CalendarDays, Target } from 'lucide-react';
+import { Activity, ArrowRight, CirclePause, ListChecks, TriangleAlert, Wallet } from 'lucide-react';
 import { StatTile } from '@/components/ui/StatTile';
 import { Card, CardHeader, CardBody } from '@/components/ui/Card';
-import BotStatusCard from '@/components/home/BotStatusCard';
 import InstallNudge from '@/components/pwa/InstallNudge';
-import RunningTradesTable from '@/components/tables/RunningTradesTable';
+import { OpenTradesTable, OpenTradesList } from '@/components/tables/RunningTradesTable';
 import PositionsTable from '@/components/tables/PositionsTable';
+import TradeSheet from '@/components/trades/TradeSheet';
+import { useTradingMode } from '@/hooks/useTradingMode';
 import { cn } from '@/lib/cn';
 import { formatMoney, tone } from '@/utils/format';
+import { isTodayIST } from '@/utils/market';
 
 /**
- * "What is happening right now" — and deliberately nothing else.
+ * Home: three numbers, and whatever is open.
  *
- * This page used to carry the equity curve, the per-day bar chart, the
- * all-time realised total and a date-range filter. All of that is history, not
- * live state: it answers "how am I doing" on a screen someone opens to answer
- * "what is open". It now lives on Report, where the same numbers can be shown
- * net of costs instead of gross.
- *
- * What stays is only what changes during a session: today's result, what is
- * open, and whether any symbol is jammed off FLAT.
- *
- * On a phone the status card at the top carries today's result, the open
- * trade and a stuck symbol in plain sentences, so the stat tiles below are
- * desktop-only there and the symbol table only appears when something is
- * actually stuck — otherwise it is a table of "FLAT" with nothing to act on.
+ * There used to be a status card on top ("Market is closed", "Bot is
+ * running", last signal). The operator found it said nothing the screen
+ * below did not already say, so it is gone. What it used to catch is still
+ * caught, each in the one place that already owns it:
+ *   - server unreachable  → the red error banner + the header dot (layout);
+ *   - bot paused          → the "Trading OFF" chip in the header;
+ *   - a symbol jammed     → the "Bot is blocked" card below, only then;
+ *   - live not ready      → one alert line, live mode only, only then.
+ * Nothing on this screen is there "just in case": a card appears when it
+ * has something to say and is absent otherwise.
  */
 export default function Overview() {
-  const { summary, running, positions, webhookLogs, config, isLive, offline, lastUpdated, refresh } =
-    useOutletContext();
+  const { summary, running, positions, config, isLive } = useOutletContext();
+  const { withMode } = useTradingMode();
 
-  // Marked-to-market exposure across everything currently open. Shown beside
-  // today's result so a flat-looking day with a large open position is never
-  // mistaken for a quiet one.
-  const openPnl = (running || []).reduce(
-    (sum, t) => (t.unrealized_pnl == null ? sum : sum + Number(t.unrealized_pnl)),
-    0
+  const [detail, setDetail] = useState({ open: false, trade: null });
+  const showTrade = useCallback((trade) => setDetail({ open: true, trade }), []);
+  const hideTrade = useCallback(() => setDetail((d) => ({ ...d, open: false })), []);
+
+  const open = running || [];
+
+  // Marked-to-market across everything open, so a flat-looking day with a
+  // large open position is never mistaken for a quiet one.
+  const marked = open.filter((t) => t.unrealized_pnl !== null && t.unrealized_pnl !== undefined);
+  const openPnl = marked.reduce((sum, t) => sum + Number(t.unrealized_pnl), 0);
+
+  // A symbol off FLAT with no open trade behind it rejects every new signal,
+  // silently. During a normal open trade the symbol is off FLAT too — that is
+  // not "blocked", and must not read like it.
+  const openIds = new Set(open.map((t) => String(t.id)));
+  const blocked = (positions || []).filter(
+    (p) => p.state !== 'FLAT' && !openIds.has(String(p.current_trade_id))
   );
-  const hasOpen = (running || []).length > 0;
-  const stuck = (positions || []).filter((p) => p.state !== 'FLAT').length;
 
   // Older backends do not send the net fields; fall back to gross rather than
-  // rendering a blank tile, and say which one is on screen either way.
-  const todayNet = summary?.todayNetPnl ?? summary?.todayPnl;
+  // a blank tile, and say which one is on screen.
   const hasNet = summary?.todayNetPnl !== undefined && summary?.todayNetPnl !== null;
+  const todayNet = hasNet ? summary.todayNetPnl : summary?.todayPnl;
+  const closedToday = summary?.todayTrades ?? 0;
+
+  // Today's trades = closed today + still open from today: the same thing the
+  // daily cap counts, so the "/ 2" beside it means what it says.
+  const tradesToday = closedToday + open.filter((t) => isTodayIST(t.created_at)).length;
+  const cap = config ? Number(config.max_trades_per_day) : null;
+  const capReached = cap > 0 && tradesToday >= cap;
+
+  // The sheet shows the latest poll of an open trade, not the copy from when
+  // it was tapped — its P&L keeps moving while the sheet is up.
+  const sheetTrade = open.find((t) => t.id === detail.trade?.id) ?? detail.trade;
 
   return (
     <>
-      <BotStatusCard
-        config={config}
-        running={running}
-        positions={positions}
-        summary={summary}
-        webhookLogs={webhookLogs}
-        isLive={isLive}
-        offline={offline}
-        lastUpdated={lastUpdated}
-        onRefresh={refresh}
-      />
+      <LiveAlert isLive={isLive} config={config} settingsHref={withMode('/settings')} />
 
-      <InstallNudge />
-
-      <div className="mb-5 hidden grid-cols-2 gap-3 sm:mb-6 sm:gap-4 md:grid lg:grid-cols-3">
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:mb-6 sm:gap-4 lg:grid-cols-3">
         <StatTile
           hero
           className="col-span-2 lg:col-span-1"
-          icon={CalendarDays}
-          label={hasNet ? 'Today · net' : 'Today · gross'}
+          to={withMode('/report')}
+          icon={Wallet}
+          label="Today's P&L"
           value={summary ? formatMoney(todayNet) : '—'}
           tone={summary ? tone(todayNet) : undefined}
           sub={
-            summary
-              ? `${summary.todayTrades ?? 0} closed today` +
-                (hasNet && summary.todayCharges
-                  ? ` · ${formatMoney(summary.todayCharges, { showSign: false })} costs`
-                  : '')
-              : 'Closed today (IST)'
+            !summary
+              ? 'Loading…'
+              : closedToday === 0
+                ? 'No trade closed yet'
+                : `${closedToday} closed` +
+                  (hasNet && summary.todayCharges
+                    ? ` · ${formatMoney(summary.todayCharges, { showSign: false })} charges paid`
+                    : '')
           }
-          hint={hasNet ? null : 'Costs not counted — see Report'}
+          hint={summary && !hasNet ? 'Before charges — see Report' : null}
+        />
+        <StatTile
+          to={withMode('/closed-trades')}
+          icon={ListChecks}
+          label="Today's trades"
+          value={summary ? tradesToday : '—'}
+          suffix={cap > 0 ? `/ ${cap}` : null}
+          sub={
+            cap === null ? 'Closed and open' : cap === 0 ? 'No daily limit' : capReached ? 'Limit reached' : 'Daily limit'
+          }
+          subTone={capReached ? 'warn' : undefined}
         />
         <StatTile
           icon={Activity}
           label="Open positions"
-          value={summary?.runningTrades ?? 0}
-          sub={hasOpen ? `${formatMoney(openPnl)} unrealised` : 'Flat'}
-          tone={hasOpen ? tone(openPnl) : undefined}
-        />
-        <StatTile
-          icon={Target}
-          label="Symbols held"
-          value={stuck}
-          sub={stuck ? 'Off FLAT — blocking new signals' : 'All flat'}
-          tone={stuck ? 'flat' : undefined}
+          value={open.length}
+          sub={
+            open.length === 0
+              ? 'No open trade'
+              : marked.length
+                ? `${formatMoney(openPnl)} right now`
+                : 'Price updating'
+          }
+          subTone={open.length && marked.length ? tone(openPnl) : undefined}
         />
       </div>
 
-      {/* On a phone an empty "no positions" box only repeats what the status
-          card above already says, so it appears there only while a trade is
-          actually open. */}
-      <Card className={cn('mb-5 sm:mb-6', !hasOpen && 'hidden md:block')}>
-        <CardHeader
-          title="Open positions"
-          description="Marked to the latest traded premium · refreshes every 30s"
-        />
-        <CardBody>
-          <RunningTradesTable trades={running} />
-        </CardBody>
-      </Card>
+      {blocked.length > 0 && (
+        <Card className="border-warn-line mb-5 sm:mb-6">
+          <CardHeader
+            className="bg-warn-soft border-warn-line"
+            title={
+              <span className="flex items-center gap-2">
+                <TriangleAlert className="text-warn size-4 shrink-0" aria-hidden="true" />
+                Bot is blocked
+              </span>
+            }
+            description={`${blocked[0].symbol} is marked ${blocked[0].state} but no trade is open. New signals are ignored until this is fixed.`}
+          />
+          <CardBody>
+            <PositionsTable positions={blocked} />
+          </CardBody>
+        </Card>
+      )}
 
-      <Card className={cn('mb-5 sm:mb-6', !stuck && 'hidden md:block')}>
-        <CardHeader
-          title="Symbol state"
-          description="A symbol stuck off FLAT blocks every new signal for it"
-        />
-        <CardBody>
-          <PositionsTable positions={positions} />
-        </CardBody>
-      </Card>
+      {open.length > 0 && (
+        <Card className="mb-5 sm:mb-6">
+          <CardHeader
+            title="Open positions"
+            description="Marked to the latest option price · tap a trade for details"
+          />
+          <CardBody className="hidden md:block">
+            <OpenTradesTable trades={open} onSelect={showTrade} />
+          </CardBody>
+          <OpenTradesList trades={open} onSelect={showTrade} />
+        </Card>
+      )}
 
-      {/* The one pointer off this page. Everything historical moved to Report,
-          and a reader who wants the totals should not have to hunt the nav. */}
+      <InstallNudge />
+
       <Link
-        to="/report"
-        className="border-line bg-surface shadow-card hover:border-line-strong hover:bg-subtle/50 flex items-center justify-between gap-3 rounded-card border px-4 py-3.5 transition-colors sm:px-5"
+        to={withMode('/report')}
+        className="border-line bg-surface shadow-card hover:border-line-strong active:bg-subtle/60 rounded-card flex items-center justify-between gap-3 border px-4 py-3.5 transition-colors sm:px-5"
       >
-        <div className="min-w-0">
-          <div className="text-ink text-[0.8125rem] font-semibold">Full report</div>
-          <p className="text-muted mt-0.5 text-xs">
-            All-time gross, what it cost, and what is actually left
-          </p>
-        </div>
-        <ArrowRight className="text-muted size-4 shrink-0" aria-hidden="true" />
+        <span className="min-w-0">
+          <span className="text-ink block text-[0.875rem] font-semibold">Full report</span>
+          <span className="text-muted mt-0.5 block text-xs">
+            All-time profit, charges and what is actually left
+          </span>
+        </span>
+        <ArrowRight className="text-ink-soft size-4 shrink-0" aria-hidden="true" />
       </Link>
+
+      <TradeSheet trade={sheetTrade} open={detail.open} onClose={hideTrade} />
     </>
+  );
+}
+
+/**
+ * Live mode only, and only when live cannot trade. Paper never needs it: its
+ * one failure mode — paused — is already the red chip in the header.
+ */
+function LiveAlert({ isLive, config, settingsHref }) {
+  if (!isLive || !config) return null;
+
+  if (!config.live?.enabled) {
+    return (
+      <Alert tone="neutral" icon={CirclePause} title="Live trading is off">
+        Real orders are switched off on the server.
+      </Alert>
+    );
+  }
+
+  if (config.live.token?.state !== 'valid') {
+    return (
+      <Alert
+        tone="warn"
+        icon={TriangleAlert}
+        title="Upstox is not connected"
+        action={
+          <Link
+            to={settingsHref}
+            className="bg-ink text-canvas shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold active:opacity-80"
+          >
+            Connect
+          </Link>
+        }
+      >
+        Connect before 9:15 so live orders can go out.
+      </Alert>
+    );
+  }
+
+  return null;
+}
+
+function Alert({ tone: t, icon: Icon, title, action, children }) {
+  return (
+    <div
+      role="status"
+      className={cn(
+        'mb-4 flex items-center gap-3 rounded-xl border px-4 py-3',
+        t === 'warn' ? 'border-warn-line bg-warn-soft' : 'border-line bg-subtle'
+      )}
+    >
+      <Icon
+        className={cn('size-5 shrink-0', t === 'warn' ? 'text-warn' : 'text-ink-soft')}
+        aria-hidden="true"
+      />
+      <span className="min-w-0 flex-1">
+        <span className="text-ink block text-[0.8125rem] font-semibold">{title}</span>
+        <span className="text-ink-soft mt-0.5 block text-xs leading-snug">{children}</span>
+      </span>
+      {action}
+    </div>
   );
 }
