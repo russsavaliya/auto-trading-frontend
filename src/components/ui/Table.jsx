@@ -11,9 +11,9 @@ import { cn } from '@/lib/cn';
  * the reader is dragging a 3x-wide surface back and forth to compare two
  * numbers on the same row, with the row identity scrolled off-screen the
  * whole time. So below `md` the tables are not rendered at all — each table
- * component renders a CardList of the same records instead, using the
- * primitives further down this file. Same data, same formatters, same order;
- * only the arrangement changes.
+ * component renders a phone list of the same records instead (rows from
+ * components/ui/List.jsx, or the record cards further down this file). Same
+ * data, same formatters; only the arrangement changes.
  */
 export function Table({ className, children }) {
   return (
@@ -101,23 +101,18 @@ export function Dash() {
 }
 
 /* ==========================================================================
-   Mobile record list
+   Mobile record cards
    --------------------------------------------------------------------------
-   The phone counterpart of a table. A record becomes a small inset panel:
+   A record as a small inset panel of labelled fields. The busy lists —
+   trades, open positions, signals, days — moved to the row primitives in
+   components/ui/List.jsx, with the full detail one tap away in a Sheet. What
+   remains here serves the symbol-state card, which only appears when a
+   symbol is jammed and is read field by field rather than scanned.
 
-     [side badge]  #12                          +₹540.00   <- RecordCard head
-     14:35 → 15:00 · 25m                                   <- meta
-     Premium in     Premium out                            <- Field grid
-     ₹120.50        ₹118.70
-     [closed by]                                           <- footer
-
-   The rules that make this readable, and that every table below follows:
-     - the identity (id, symbol, time) and the number the row exists to
-       report are on the SAME first line, so no scroll separates them;
-     - each value carries its own label, because there is no column header
-       above it to inherit one from;
-     - the ordering matches the desktop columns left-to-right, so someone who
-       knows one layout can find a field in the other.
+   The rules every card follows:
+     - identity and state on the same first line, so no scroll separates them;
+     - each value carries its own label, since no column header sits above;
+     - fields in the same order as the desktop columns.
    ========================================================================== */
 
 /**
@@ -162,15 +157,6 @@ export function RecordHead({ lead, trail, className }) {
   );
 }
 
-/** The headline figure in a RecordHead — sized to be the thing the eye lands on. */
-export function RecordValue({ value, children, className }) {
-  return (
-    <span className={cn('tnum text-[0.9375rem] font-semibold', moneyTone(value), className)}>
-      {children}
-    </span>
-  );
-}
-
 /** The timing line under the head: opened/closed, held for, received at. */
 export function RecordMeta({ className, children }) {
   return (
@@ -199,10 +185,16 @@ export function FieldGrid({ cols = 2, className, children }) {
   );
 }
 
+/**
+ * A name over its value. The name is set darker than the value — the
+ * operator's call, and the right one: pale-grey caps were the hardest text on
+ * the phone to read, and the name is what you scan for. The value keeps the
+ * larger size, so it still carries the weight.
+ */
 export function Field({ label, dim = false, className, children }) {
   return (
     <div className={cn('min-w-0', className)}>
-      <dt className="text-faint text-[0.625rem] font-medium tracking-wide uppercase">{label}</dt>
+      <dt className="text-ink text-[0.6875rem] font-semibold">{label}</dt>
       {/* Wraps rather than truncates: a value can carry an InlineFlag after it
           ("marked", the mark's candle time), and in a ~125px column clipping
           the flag would silently drop the caveat while leaving the number
@@ -215,15 +207,6 @@ export function Field({ label, dim = false, className, children }) {
       >
         {children}
       </dd>
-    </div>
-  );
-}
-
-/** A trailing strip for badges or flags that qualify the whole record. */
-export function RecordFooter({ className, children }) {
-  return (
-    <div className={cn('border-line mt-2.5 flex flex-wrap items-center gap-2 border-t pt-2.5', className)}>
-      {children}
     </div>
   );
 }

@@ -33,7 +33,12 @@ export function useTradingMode() {
     [params, setParams]
   );
 
-  return { mode, setMode, isLive: mode === LIVE };
+  // Every in-app link goes through this. A plain to="/report" drops the
+  // query string, so tapping a tab while viewing live silently switched the
+  // screen back to paper — the exact ambiguity this hook exists to prevent.
+  const withMode = useCallback((path) => (mode === LIVE ? `${path}?mode=${LIVE}` : path), [mode]);
+
+  return { mode, setMode, isLive: mode === LIVE, withMode };
 }
 
 export default useTradingMode;
