@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Download, X } from 'lucide-react';
 import { useInstallPrompt } from '@/hooks/useInstallPrompt';
+import { useTradingMode } from '@/hooks/useTradingMode';
 
 const DISMISS_KEY = 'install-nudge-dismissed';
 
@@ -20,6 +21,7 @@ function readDismissed() {
  */
 export default function InstallNudge() {
   const { canPrompt, iosManual, install } = useInstallPrompt();
+  const { withMode } = useTradingMode();
   const [dismissed, setDismissed] = useState(readDismissed);
 
   if (dismissed || (!canPrompt && !iosManual)) return null;
@@ -47,7 +49,7 @@ export default function InstallNudge() {
         </button>
       ) : (
         <Link
-          to="/settings"
+          to={withMode('/settings')}
           className="bg-brand text-canvas shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold active:opacity-80"
         >
           How

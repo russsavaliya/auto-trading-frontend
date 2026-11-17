@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import Login from '@/pages/Login';
@@ -28,9 +28,15 @@ export default function AppRoutes() {
         {/* Positions folded into Overview — it is live state and belongs
             beside the open position. Kept as a redirect so a bookmarked or
             pasted /positions link still lands somewhere sensible. */}
-        <Route path="/positions" element={<Navigate to="/" replace />} />
+        <Route path="/positions" element={<HomeRedirect />} />
       </Route>
       <Route path="*" element={<Navigate to={authed ? '/' : '/login'} replace />} />
     </Routes>
   );
+}
+
+/** Keeps the query string, so a /positions?mode=live link still lands on live. */
+function HomeRedirect() {
+  const { search } = useLocation();
+  return <Navigate to={{ pathname: '/', search }} replace />;
 }
