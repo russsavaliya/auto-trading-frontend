@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { LogOut, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/cn';
@@ -27,24 +26,26 @@ export function Topbar({
   mode,
   onModeChange,
   liveAvailable,
-  settingsHref = '/settings',
   onLogout,
 }) {
   const stamp =
     lastUpdated &&
     lastUpdated.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false });
+  const status = headerStatus({ offline, tradingEnabled });
 
   return (
     <header className="border-line bg-canvas/85 pt-safe sticky top-0 z-20 border-b backdrop-blur-md select-none">
       <div className="mx-auto flex max-w-[80rem] items-center justify-between gap-2 px-4 py-2.5 sm:gap-4 sm:px-6 sm:py-3">
-        <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3">
-          <span
-            title={offline ? 'Last refresh failed' : 'Live'}
-            className={cn(
-              'size-2 shrink-0 rounded-full',
-              offline ? 'bg-loss ring-loss/20 ring-4' : 'bg-profit ring-profit/20 ring-4'
-            )}
-          />
+        <div className="flex min-w-0 flex-1 items-start gap-2.5 sm:gap-3">
+          {/* The wrapper takes the title's font size and line height, so 1lh
+              is exactly one title line: the dot sits beside the title, not
+              halfway down the title + sub-line block. */}
+          <span className="flex h-[1lh] shrink-0 items-center text-[1.0625rem] leading-tight sm:text-[0.9375rem]">
+            <span
+              title={status.label}
+              className={cn('size-2 rounded-full ring-4', status.dot)}
+            />
+          </span>
           <div className="min-w-0">
             <h1 className="text-ink truncate text-[1.0625rem] leading-tight font-semibold tracking-tight sm:text-[0.9375rem]">
               {shortTitle ? (
@@ -66,7 +67,6 @@ export function Topbar({
           {stamp && (
             <RefreshStamp stamp={stamp} onRefresh={onRefresh} large className="hidden lg:inline-flex" />
           )}
-          <TradingStatus enabled={tradingEnabled} href={settingsHref} />
           {/* Phone: Log out lives at the bottom of Settings, where apps keep
               it — a header slot is too valuable, and too easy to hit by
               accident, for an action nobody needs mid-session. */}
@@ -83,6 +83,19 @@ export function Topbar({
       </div>
     </header>
   );
+}
+
+/**
+ * The dot beside the title. Red means something needs attention: either the
+ * bridge stopped answering, or auto-trading is switched off. `null` means the
+ * config read failed — shown grey rather than guessed, because a false "OFF"
+ * starts a panic and a false "ON" hides an outage.
+ */
+function headerStatus({ offline, tradingEnabled }) {
+  if (offline) return { label: 'Last refresh failed', dot: 'bg-loss ring-loss/20' };
+  if (tradingEnabled === false) return { label: 'Auto-trading is OFF', dot: 'bg-loss ring-loss/20' };
+  if (tradingEnabled == null) return { label: 'Trading status unknown', dot: 'bg-faint ring-faint/20' };
+  return { label: 'Auto-trading is ON', dot: 'bg-profit ring-profit/20' };
 }
 
 /**
@@ -126,58 +139,6 @@ function RefreshStamp({ stamp, onRefresh, large = false, className }) {
       />
       {stamp} IST
     </button>
-  );
-}
-
-/**
- * Read-only. The switch itself now lives on Settings — but the STATE stays
- * here, on every screen, because "the bot silently stopped trading" is the
- * failure this dashboard exists to make impossible to miss, and a kill switch
- * you have to navigate to in order to see is one you will eventually forget to
- * check. Tapping it goes to Settings, where it can actually be changed.
- *
- * `null` means the config read failed. That is shown as its own state rather
- * than defaulting to OFF, because guessing wrong in either direction is worse
- * than saying so: a false "OFF" starts a panic, a false "ON" hides an outage.
- */
-function TradingStatus({ enabled, href }) {
-  const unknown = enabled === null || enabled === undefined;
-
-  return (
-    <Link
-      to={href}
-      title={
-        unknown
-          ? 'Could not read the trading status — open Settings'
-          : enabled
-            ? 'Auto-trading is ON — open Settings to pause'
-            : 'Auto-trading is OFF — open Settings to resume'
-      }
-      className={cn(
-        'inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-[0.6875rem] font-semibold transition-colors',
-        'sm:gap-2 sm:px-3 sm:text-xs',
-        unknown
-          ? 'border-line bg-subtle text-muted hover:bg-subtle-strong'
-          : enabled
-            ? 'border-profit-line bg-profit-soft text-profit hover:bg-profit/10'
-            : 'border-loss-line bg-loss-soft text-loss hover:bg-loss/10'
-      )}
-    >
-      <span
-        aria-hidden="true"
-        className={cn(
-          'size-1.5 shrink-0 rounded-full sm:size-2',
-          unknown
-            ? 'bg-faint ring-faint/20 ring-[3px] sm:ring-4'
-            : enabled
-              ? 'bg-profit ring-profit/20 ring-[3px] sm:ring-4'
-              : 'bg-loss ring-loss/20 ring-[3px] sm:ring-4'
-        )}
-      />
-      <span className="whitespace-nowrap">
-        {unknown ? 'Trading —' : enabled ? 'Trading ON' : 'Trading OFF'}
-      </span>
-    </Link>
   );
 }
 

@@ -52,7 +52,7 @@ const PAGE_TITLES = {
 export default function DashboardLayout() {
   const { logout } = useAuth();
   const location = useLocation();
-  const { mode, setMode, isLive, withMode } = useTradingMode();
+  const { mode, setMode, isLive } = useTradingMode();
 
   const [summary, setSummary] = useState(null);
   const [days, setDays] = useState(null);
@@ -174,7 +174,6 @@ export default function DashboardLayout() {
           mode={mode}
           onModeChange={setMode}
           liveAvailable={Boolean(config?.live?.enabled)}
-          settingsHref={withMode('/settings')}
           onLogout={logout}
         />
 

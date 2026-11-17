@@ -20,7 +20,7 @@ import { isTodayIST } from '@/utils/market';
  * below did not already say, so it is gone. What it used to catch is still
  * caught, each in the one place that already owns it:
  *   - server unreachable  → the red error banner + the header dot (layout);
- *   - bot paused          → the "Trading OFF" chip in the header;
+ *   - bot paused          → the header dot turns red;
  *   - a symbol jammed     → the "Bot is blocked" card below, only then;
  *   - live not ready      → one alert line, live mode only, only then.
  * Nothing on this screen is there "just in case": a card appears when it
