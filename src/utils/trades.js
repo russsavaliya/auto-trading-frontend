@@ -24,7 +24,10 @@ const CLOSE_REASONS = {
   time_stop: ['Time stop', 'brand'],
   eod_square_off: ['EOD square-off', 'warn'],
   stale_overnight: ['Stale (overnight)', 'warn'],
-  manual_close: ['Manual', 'warn'],
+  manual_close: ['Closed by hand', 'warn'],
+  // Sold outside the bridge (the Upstox app, or the broker's own risk desk);
+  // the bridge found the position gone and recorded the broker's sell price.
+  closed_externally: ['Closed on Upstox', 'warn'],
   force_flat_no_exit_order: ['Force-flat', 'warn'],
 };
 

@@ -417,6 +417,8 @@ export default function Settings() {
         </CardBody>
       </Card>
 
+      <ExitRulesCard config={config} mode={mode} isLive={isLive} patch={patch} />
+
       {/* ---- Why the cap exists ------------------------------------------- */}
       <CollapsibleCard
         className="mb-5"
@@ -505,6 +507,234 @@ export default function Settings() {
 
       <AppSection onLogout={logout} />
     </div>
+  );
+}
+
+/**
+ * The automatic exits, one switch each, per environment.
+ *
+ * Every switch is ON by default — that is exactly how the bridge traded
+ * before these existed. A rule switched OFF never closes a position in this
+ * environment; the owner closes it by hand (Home → Close now). The 15:20
+ * square-off has no switch on purpose: nothing is ever held overnight.
+ *
+ * Same Save-button pattern as the entry rules: switching the stop-loss off on
+ * a live position is a deliberate act, not something a stray tap should do.
+ */
+function ExitRulesCard({ config, mode, isLive, patch }) {
+  const exit = config?.exit;
+  const [draft, setDraft] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    setDraft(null);
+  }, [mode]);
+
+  useEffect(() => {
+    if (!exit) return;
+    setDraft((prev) =>
+      prev === null
+        ? {
+            exit_stop_loss_enabled: exit.stop_loss_enabled,
+            exit_trailing_enabled: exit.trailing_enabled,
+            exit_time_stop_enabled: exit.time_stop_enabled,
+            exit_signal_enabled: exit.signal_exit_enabled,
+            stop_loss_pct: String(exit.stop_loss_pct),
+          }
+        : prev
+    );
+  }, [exit]);
+
+  // Older backends do not send this block; the card simply does not exist.
+  if (!exit || !draft) return null;
+
+  const readOnly = exit.source !== 'db';
+  const dirty =
+    exit.stop_loss_enabled !== draft.exit_stop_loss_enabled ||
+    exit.trailing_enabled !== draft.exit_trailing_enabled ||
+    exit.time_stop_enabled !== draft.exit_time_stop_enabled ||
+    exit.signal_exit_enabled !== draft.exit_signal_enabled ||
+    String(exit.stop_loss_pct) !== draft.stop_loss_pct;
+
+  const anyOffSaved =
+    !exit.stop_loss_enabled || !exit.trailing_enabled || !exit.time_stop_enabled || !exit.signal_exit_enabled;
+  const anyOffDraft =
+    !draft.exit_stop_loss_enabled ||
+    !draft.exit_trailing_enabled ||
+    !draft.exit_time_stop_enabled ||
+    !draft.exit_signal_enabled;
+
+  async function save() {
+    const ok = await patch(
+      {
+        exit_stop_loss_enabled: draft.exit_stop_loss_enabled,
+        exit_trailing_enabled: draft.exit_trailing_enabled,
+        exit_time_stop_enabled: draft.exit_time_stop_enabled,
+        exit_signal_enabled: draft.exit_signal_enabled,
+        stop_loss_pct: Number(draft.stop_loss_pct),
+      },
+      setSaving
+    );
+    if (ok) {
+      setDraft(null);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2200);
+    }
+  }
+
+  const env = isLive ? 'Live' : 'Paper';
+
+  return (
+    <Card className="mb-5">
+      <CardHeader
+        title="Exit rules"
+        description={`What closes an open ${env.toLowerCase()} position automatically. The ${exit.square_off_ist} square-off always runs.`}
+      />
+      <CardBody className="pt-1">
+        {readOnly && (
+          <Callout tone="warn" className="mt-3">
+            <strong className="text-ink font-semibold">Exit switches are not saving yet.</strong> The
+            database is missing migration 008, so every exit is on and cannot be changed here. Run{' '}
+            <code className="bg-warn-soft rounded px-1 py-px text-[0.75rem]">
+              sql/migrations/008_exit_switches.sql
+            </code>{' '}
+            against Supabase first.
+          </Callout>
+        )}
+
+        <Switch
+          id="exit-stop-loss"
+          checked={draft.exit_stop_loss_enabled}
+          disabled={readOnly}
+          onChange={(v) => setDraft({ ...draft, exit_stop_loss_enabled: v })}
+          label="Stop loss"
+          description="Closes the position when the option closes this far below the price at the alert (1-minute candle close)."
+        />
+        {draft.exit_stop_loss_enabled && (
+          <div className="border-line border-t">
+            <NumberField
+              id="stop-loss-pct"
+              label="Stop loss level"
+              description={`Percent below the entry reference. Server default ${exit.stop_loss_pct_default}%. Allowed 5–40.`}
+              value={draft.stop_loss_pct}
+              min={5}
+              max={40}
+              suffix="%"
+              disabled={readOnly}
+              onChange={(v) => setDraft({ ...draft, stop_loss_pct: v })}
+            />
+          </div>
+        )}
+
+        <div className="border-line border-t">
+          <Switch
+            id="exit-trailing"
+            checked={draft.exit_trailing_enabled}
+            disabled={readOnly}
+            onChange={(v) => setDraft({ ...draft, exit_trailing_enabled: v })}
+            label="Trailing stop"
+            description={`Arms once the option is ${exit.trail_arm_pct}% up, then closes on a ${exit.trail_pct}% fall from its best price — never below break-even.`}
+          />
+        </div>
+
+        <div className="border-line border-t">
+          <Switch
+            id="exit-time-stop"
+            checked={draft.exit_time_stop_enabled}
+            disabled={readOnly}
+            onChange={(v) => setDraft({ ...draft, exit_time_stop_enabled: v })}
+            label="Time stop"
+            description={`Closes every position ${exit.max_hold_minutes} minutes after entry, win or lose. The best exit in the paper book's history.`}
+          />
+        </div>
+
+        <div className="border-line border-t">
+          <Switch
+            id="exit-signal"
+            checked={draft.exit_signal_enabled}
+            disabled={readOnly}
+            onChange={(v) => setDraft({ ...draft, exit_signal_enabled: v })}
+            label="Pine exit signal"
+            description="Closes the position when TradingView sends CALL_EXIT / PUT_EXIT (score weakened or flipped)."
+          />
+        </div>
+
+        {(anyOffDraft || anyOffSaved) && (
+          <div
+            className={cn(
+              'mt-3 flex items-start gap-2 rounded-lg border px-3 py-2.5 text-xs leading-relaxed',
+              isLive ? 'border-loss-line bg-loss-soft text-loss' : 'border-warn-line bg-warn-soft text-ink-soft'
+            )}
+          >
+            <ShieldAlert className="mt-px size-3.5 shrink-0" aria-hidden="true" />
+            <span>
+              A rule that is off never closes a {env.toLowerCase()} position. Watch it yourself and use{' '}
+              <strong className="font-semibold">Close now</strong> on Home when you want out. While a
+              position is open, new signals are ignored. Everything still closes at {exit.square_off_ist}.
+            </span>
+          </div>
+        )}
+
+        <div className="border-line mt-2 flex items-center justify-between gap-3 border-t pt-4">
+          <span className="text-muted text-xs">
+            {saved && !dirty ? (
+              <span className="text-profit inline-flex items-center gap-1.5 font-medium">
+                <Check className="size-3.5" aria-hidden="true" />
+                Saved
+              </span>
+            ) : dirty ? (
+              'Unsaved changes'
+            ) : (
+              'Up to date'
+            )}
+          </span>
+          <div className="flex items-center gap-2">
+            {dirty && (
+              <Button size="md" onClick={() => setDraft(null)} disabled={saving}>
+                Discard
+              </Button>
+            )}
+            <Button variant="primary" size="md" onClick={save} disabled={!dirty || saving || readOnly}>
+              {saving && <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />}
+              Save changes
+            </Button>
+          </div>
+        </div>
+
+        <details className="group mt-4">
+          <summary className="text-muted cursor-pointer text-xs font-medium select-none">
+            What the data says about switching these off
+          </summary>
+          <div className="text-ink-soft mt-2 flex flex-col gap-1.5 text-xs leading-relaxed">
+            <p>
+              Measured on 19 Nov 2026 over 18 months of signals (modelled option prices) and the
+              real November candles, one trade a day, after charges:
+            </p>
+            <ul className="ml-4 list-disc space-y-1">
+              <li>
+                <strong className="text-ink font-medium">Time stop off:</strong> much worse everywhere
+                (18 months −₹60k vs −₹22k). Keep it on.
+              </li>
+              <li>
+                <strong className="text-ink font-medium">Trailing stop off:</strong> worse over 18 months,
+                better only in trend months. Keep it on.
+              </li>
+              <li>
+                <strong className="text-ink font-medium">Stop loss and Pine exit both off</strong> (time
+                stop and trail do all the work): 18 months −₹22k → +₹17k, better in 13 of 18 months. On
+                the real November candles the gain is almost all one trade (19 Nov), and one other stop
+                turned out worse — so this is promising, not proven. Try it on Paper first.
+              </li>
+              <li>
+                <strong className="text-ink font-medium">Stop loss level:</strong> 10–16% all give about
+                the same result. It is not where the money is.
+              </li>
+            </ul>
+          </div>
+        </details>
+      </CardBody>
+    </Card>
   );
 }
 

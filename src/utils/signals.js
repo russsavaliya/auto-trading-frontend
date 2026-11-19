@@ -18,6 +18,7 @@ const REASONS = {
   past_entry_cutoff: ['Too late in the day for a new trade', false],
   market_closed: ['Market was closed', false],
   missing_trade_reference: ['No linked trade to exit', true],
+  signal_exit_disabled: ['Pine exit is switched off in Settings', false],
 };
 
 /** [plain-English reason, isFault] — or null when there is no reason. */

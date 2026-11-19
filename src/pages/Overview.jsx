@@ -1,7 +1,10 @@
 import { useCallback, useState } from 'react';
 import { useOutletContext, Link } from 'react-router-dom';
-import { Activity, ArrowRight, CirclePause, ListChecks, TriangleAlert, Wallet } from 'lucide-react';
+import { Activity, ArrowRight, CirclePause, ListChecks, Loader2, TriangleAlert, Wallet } from 'lucide-react';
+import { closePosition } from '@/api';
+import { useAuth } from '@/context/AuthContext';
 import { StatTile } from '@/components/ui/StatTile';
+import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardBody } from '@/components/ui/Card';
 import InstallNudge from '@/components/pwa/InstallNudge';
 import { OpenTradesTable, OpenTradesList } from '@/components/tables/RunningTradesTable';
@@ -9,7 +12,7 @@ import PositionsTable from '@/components/tables/PositionsTable';
 import TradeSheet from '@/components/trades/TradeSheet';
 import { useTradingMode } from '@/hooks/useTradingMode';
 import { cn } from '@/lib/cn';
-import { formatMoney, tone } from '@/utils/format';
+import { formatContract, formatMoney, tone } from '@/utils/format';
 import { isTodayIST } from '@/utils/market';
 
 /**
@@ -27,7 +30,7 @@ import { isTodayIST } from '@/utils/market';
  * has something to say and is absent otherwise.
  */
 export default function Overview() {
-  const { summary, running, positions, config, isLive } = useOutletContext();
+  const { summary, running, positions, config, isLive, mode, refresh } = useOutletContext();
   const { withMode } = useTradingMode();
 
   const [detail, setDetail] = useState({ open: false, trade: null });
@@ -139,6 +142,7 @@ export default function Overview() {
           <CardHeader
             title="Open positions"
             description="Marked to the latest option price · tap a trade for details"
+            actions={<CloseNow trades={open} mode={mode} isLive={isLive} onClosed={refresh} />}
           />
           <CardBody className="hidden md:block">
             <OpenTradesTable trades={open} onSelect={showTrade} />
@@ -164,6 +168,77 @@ export default function Overview() {
 
       <TradeSheet trade={sheetTrade} open={detail.open} onClose={hideTrade} />
     </>
+  );
+}
+
+/**
+ * "Close now": sells the open position at market through the bridge, so the
+ * bridge's own state stays right. Two taps on purpose — the first shows what
+ * will be sold and in which environment, the second sends it. In live mode
+ * this is a real order with real money.
+ *
+ * This is the way to close by hand. A sell placed in the Upstox app also
+ * works — the bridge notices within a minute and records it — but until then
+ * it still believes it is in the trade.
+ */
+function CloseNow({ trades, mode, isLive, onClosed }) {
+  const { logout } = useAuth();
+  const [arm, setArm] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  const symbols = [...new Set(trades.map((t) => t.symbol))];
+  const label = trades.length === 1 ? (formatContract(trades[0]) ?? trades[0].symbol) : `${trades.length} positions`;
+
+  async function go() {
+    setBusy(true);
+    setErr('');
+    try {
+      for (const symbol of symbols) await closePosition(symbol, mode);
+      setArm(false);
+      await onClosed();
+    } catch (e) {
+      if (e.status === 401) {
+        logout();
+        return;
+      }
+      setErr(e.message || 'Could not close');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!arm) {
+    return (
+      <Button size="sm" onClick={() => setArm(true)}>
+        Close now
+      </Button>
+    );
+  }
+
+  return (
+    <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
+      <span className={cn('text-xs font-medium', isLive ? 'text-loss' : 'text-ink-soft')}>
+        {isLive ? 'Sell ' : 'Close '}
+        {label} at market in {isLive ? 'LIVE' : 'paper'}?
+      </span>
+      <div className="flex items-center gap-2">
+        <Button size="sm" onClick={() => setArm(false)} disabled={busy}>
+          Cancel
+        </Button>
+        <Button
+          size="sm"
+          variant="primary"
+          onClick={go}
+          disabled={busy}
+          className={isLive ? 'bg-loss hover:bg-loss active:bg-loss' : undefined}
+        >
+          {busy && <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />}
+          {isLive ? 'Yes, sell' : 'Yes, close'}
+        </Button>
+      </div>
+      {err && <span className="text-loss text-xs">{err}</span>}
+    </div>
   );
 }
 

@@ -33,7 +33,7 @@ const PAGE_TITLES = {
     sub: 'Full history — option premium and index level side by side',
   },
   '/webhook-logs': { title: 'Signals', sub: 'Every alert from TradingView and what the bot did with it' },
-  '/settings': { title: 'Settings', sub: 'Trading controls and the rules that gate every entry' },
+  '/settings': { title: 'Settings', sub: 'Trading controls, entry rules and the automatic exits' },
 };
 
 /**
